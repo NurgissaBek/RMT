@@ -1,0 +1,197 @@
+.review-modal {
+  background: white;
+  width: 95%;
+  max-width: 1000px;
+  max-height: 90vh;
+  border-radius: 16px;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.review-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  border-radius: 16px 16px 0 0;
+}
+
+.review-header h2 {
+  margin: 0 0 10px 0;
+  font-size: 26px;
+}
+
+.student-name, .task-title {
+  margin: 5px 0;
+  opacity: 0.95;
+  font-size: 14px;
+}
+
+.review-content {
+  padding: 30px;
+}
+
+.info-section {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+  margin-bottom: 25px;
+}
+
+.info-section h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border-left: 4px solid #667eea;
+}
+
+.info-item .label {
+  font-weight: 600;
+  color: #555;
+}
+
+.code-section {
+  margin-bottom: 30px;
+}
+
+.code-section h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.code-display {
+  background: #282c34;
+  color: #abb2bf;
+  padding: 25px;
+  border-radius: 12px;
+  overflow-x: auto;
+  font-family: 'Fira Code', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.6;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.code-display code {
+  display: block;
+  white-space: pre;
+}
+
+.review-form {
+  background: #f8f9fa;
+  padding: 25px;
+  border-radius: 12px;
+}
+
+.review-form .form-group {
+  margin-bottom: 20px;
+}
+
+.review-form label {
+  display: block;
+  margin-bottom: 10px;
+  color: #333;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.review-form select,
+.review-form input,
+.review-form textarea {
+  width: 100%;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.3s;
+}
+
+.review-form select:focus,
+.review-form input:focus,
+.review-form textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.points-presets {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.points-presets button {
+  padding: 8px 16px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.points-presets button:hover {
+  border-color: #667eea;
+  color: #667eea;
+  background: #f0f2ff;
+}
+
+.review-actions {
+  display: flex;
+  gap: 15px;
+  justify-content: flex-end;
+  margin-top: 25px;
+}
+
+.btn-cancel {
+  padding: 12px 30px;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-cancel:hover {
+  background: #f5f5f5;
+}
+
+.btn-submit-review {
+  padding: 12px 30px;
+  background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.btn-submit-review:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 20px rgba(81, 207, 102, 0.4);
+}
+
+.btn-submit-review:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
