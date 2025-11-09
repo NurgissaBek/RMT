@@ -14,19 +14,48 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
     const { level, user, route, limit = 200, skip = 0 } = req.query;
     const query = {};
     if (level) query.level = level;
-    if (route) query.route = route;
-
+    
+    // Исключаем логи WebSocket подключений и отключений
+    if (route && route !== '/socket.io') {
+      query.route = route;
+    } else {
+      query.route = { $ne: '/socket.io' };
+    }
+    query.message = { 
+      $not: /WebSocket (connected|disconnected)/i 
+    };
+    
     if (user) {
+      // Если запрашивается конкретный пользователь
+      const requestedUserId = user.toString();
+      if (requestedUserId === req.user.id.toString()) {
+        // Если учитель запрашивает свои логи - возвращаем пустой результат
+        return res.json({ success: true, count: 0, logs: [] });
+      }
+      // Показываем логи запрошенного пользователя только если это студент из групп учителя
       query.user = user;
     } else {
-      // Ограничиваем логи студентами из групп учителя + сам учитель + системные
+      // Для учителя: показываем логи студентов из его групп (НЕ свои действия)
       const groups = await Group.find({ createdBy: req.user.id }).select('students');
-      const studentIds = groups.flatMap(g => g.students.map(id => id.toString()));
-      const allowedUsers = [...new Set([...studentIds, req.user.id.toString()])];
-      query.$or = [
-        { user: { $in: allowedUsers } },
-        { user: null }
-      ];
+      const studentIds = groups.flatMap(g => 
+        (g.students || []).map(id => id.toString ? id.toString() : String(id))
+      ).filter(id => id);
+      
+      if (studentIds.length > 0) {
+        // У учителя есть группы - показываем только студентов из этих групп (НЕ действия учителя)
+        query.user = { $in: studentIds };
+      } else {
+        // У учителя нет групп - показываем все логи студентов (НЕ свои)
+        const User = require('../models/User');
+        const allStudents = await User.find({ role: 'student' }).select('_id');
+        const allStudentIds = allStudents.map(s => s._id.toString());
+        if (allStudentIds.length > 0) {
+          query.user = { $in: allStudentIds };
+        } else {
+          // Если нет студентов, возвращаем пустой результат
+          return res.json({ success: true, count: 0, logs: [] });
+        }
+      }
     }
 
     const logs = await Log.find(query)
@@ -34,6 +63,7 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
       .limit(parseInt(limit, 10))
       .skip(parseInt(skip, 10))
       .populate('user', 'name email role');
+    
     res.json({ success: true, count: logs.length, logs });
   } catch (err) {
     logger.error('Logs route error', {
@@ -50,7 +80,37 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
 router.get('/export', protect, authorize('teacher'), async (req, res) => {
   try {
     const { format = 'csv' } = req.query;
-    const logs = await Log.find({}).sort({ createdAt: -1 }).lean();
+    
+    // Применяем ту же фильтрацию, что и в GET /api/logs - только студенты из групп учителя
+    const query = {};
+    
+    // Исключаем логи WebSocket
+    query.route = { $ne: '/socket.io' };
+    query.message = { 
+      $not: /WebSocket (connected|disconnected)/i 
+    };
+    
+    const groups = await Group.find({ createdBy: req.user.id }).select('students');
+    const studentIds = groups.flatMap(g => 
+      (g.students || []).map(id => id.toString ? id.toString() : String(id))
+    ).filter(id => id);
+    
+    if (studentIds.length > 0) {
+      // У учителя есть группы - показываем только студентов из этих групп
+      query.user = { $in: studentIds };
+    } else {
+      // У учителя нет групп - показываем все логи студентов
+      const User = require('../models/User');
+      const allStudents = await User.find({ role: 'student' }).select('_id');
+      const allStudentIds = allStudents.map(s => s._id.toString());
+      if (allStudentIds.length > 0) {
+        query.user = { $in: allStudentIds };
+      } else {
+        return res.status(404).json({ success: false, error: 'No students found' });
+      }
+    }
+    
+    const logs = await Log.find(query).sort({ createdAt: -1 }).lean();
 
     if (format === 'xlsx') {
       const workbook = new ExcelJS.Workbook();

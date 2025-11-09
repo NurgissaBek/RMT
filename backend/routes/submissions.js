@@ -98,8 +98,10 @@ router.post('/', protect, authorize('student'), async (req, res) => {
             }
         }
 
-        // Логируем отправку решения студентом
-        logger.info('Student submitted solution', {
+        // Логируем отправку решения студентом с именем
+        const student = await User.findById(req.user.id).select('name');
+        const studentName = student ? student.name : 'Unknown';
+        await logger.info(`${studentName} submitted solution for task "${task.title}"`, {
             user: req.user.id,
             route: req.originalUrl,
             ip: req.ip,
@@ -107,7 +109,8 @@ router.post('/', protect, authorize('student'), async (req, res) => {
                 taskId: taskId, 
                 taskTitle: task.title,
                 language: language,
-                attemptNumber: previousSubmissions + 1
+                attemptNumber: previousSubmissions + 1,
+                studentName: studentName
             }
         });
 
@@ -274,17 +277,8 @@ router.put('/:id', protect, authorize('student'), async (req, res) => {
 
         await submission.save();
 
-        // Логируем
-        logger.info('Submission updated', { 
-            user: req.user ? req.user.id : null, 
-            route: req.originalUrl, 
-            ip: req.ip, 
-            meta: { 
-                submissionId: submission._id, 
-                taskId: submission.task ? (submission.task._id || submission.task) : null,
-                language: submission.language 
-            } 
-        });
+        // Не логируем обновление решения - это не критичное событие
+        // Логируем только создание нового решения (в POST /api/submissions)
 
         res.status(200).json({
             success: true,
@@ -476,19 +470,7 @@ router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
         await submission.save();
         await student.save();
 
-        logger.info('Submission reviewed', {
-            user: req.user ? req.user.id : null,
-            route: req.originalUrl,
-            ip: req.ip,
-            meta: {
-                submissionId: submission._id,
-                taskId: submission.task ? (submission.task._id || submission.task) : null,
-                language: submission.language,
-                status,
-                pointsAwarded: submission.pointsAwarded,
-                badges: submission.awardedBadges.map(b => b.name)
-            }
-        });
+        // Не логируем действия преподавателя по проверке заданий - только действия студентов
 
         res.status(200).json({
             success: true,

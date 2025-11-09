@@ -10,9 +10,19 @@ const LecturesManager = () => {
   const [form, setForm] = useState({ title: '', description: '', videoUrl: '', resources: '', assignedGroups: [] });
 
   const fetchLectures = async () => {
-    const res = await fetch(`${API_BASE}/api/lectures`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (data.success) setLectures(data.lectures);
+    try {
+      const res = await fetch(`${API_BASE}/api/lectures`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) {
+        setLectures(data.lectures || []);
+      } else {
+        console.error('Failed to fetch lectures:', data.message);
+        setLectures([]);
+      }
+    } catch (error) {
+      console.error('Error fetching lectures:', error);
+      setLectures([]);
+    }
   };
 
   const fetchGroups = async () => {
@@ -21,7 +31,10 @@ const LecturesManager = () => {
     if (data.success) setGroups(data.groups);
   };
 
-  useEffect(() => { fetchLectures(); fetchGroups(); }, []);
+  useEffect(() => { 
+    fetchLectures(); 
+    fetchGroups(); 
+  }, [token]);
 
   const createLecture = async (e) => {
     e.preventDefault();
@@ -39,6 +52,29 @@ const LecturesManager = () => {
     const data = await res.json();
     if (data.success) { setShowCreate(false); setForm({ title: '', description: '', videoUrl: '', resources: '' }); fetchLectures(); }
     else alert(data.message || 'Error creating lecture');
+  };
+
+  const deleteLecture = async (lectureId) => {
+    if (!window.confirm('Are you sure you want to delete this lecture?')) return;
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/lectures/${lectureId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Удаляем лекцию из локального состояния сразу, затем обновляем список
+        setLectures(prev => prev.filter(l => l._id !== lectureId));
+        // Обновляем список с сервера для уверенности
+        await fetchLectures();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to delete lecture'));
+      }
+    } catch (error) {
+      alert('Error deleting lecture');
+      console.error(error);
+    }
   };
 
   return (
@@ -95,6 +131,14 @@ const LecturesManager = () => {
               </div>
               <div className="task-row-actions">
                 {l.videoUrl && <a className="btn-secondary" href={l.videoUrl} target="_blank" rel="noreferrer">Open Video</a>}
+                <button 
+                  className="btn-icon btn-danger"
+                  onClick={() => deleteLecture(l._id)}
+                  title="Delete Lecture"
+                  style={{ marginLeft: '10px', backgroundColor: '#f44336', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  🗑️ Delete
+                </button>
               </div>
             </div>
           ))

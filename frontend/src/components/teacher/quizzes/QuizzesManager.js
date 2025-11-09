@@ -19,12 +19,22 @@ const QuizzesManager = () => {
   useEffect(() => {
     fetchQuizzes();
     fetchGroups();
-  }, []);
+  }, [token]);
 
   const fetchQuizzes = async () => {
-    const res = await fetch(`${API_BASE}/api/quizzes`, { headers: { Authorization: `Bearer ${token}` } });
-    const data = await res.json();
-    if (data.success) setQuizzes(data.quizzes);
+    try {
+      const res = await fetch(`${API_BASE}/api/quizzes`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) {
+        setQuizzes(data.quizzes || []);
+      } else {
+        console.error('Failed to fetch quizzes:', data.message);
+        setQuizzes([]);
+      }
+    } catch (error) {
+      console.error('Error fetching quizzes:', error);
+      setQuizzes([]);
+    }
   };
 
   const fetchGroups = async () => {
@@ -133,6 +143,29 @@ const QuizzesManager = () => {
     }
   };
 
+  const deleteQuiz = async (quizId) => {
+    if (!window.confirm('Are you sure you want to delete this quiz? This will also delete all submissions.')) return;
+    
+    try {
+      const res = await fetch(`${API_BASE}/api/quizzes/${quizId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (data.success) {
+        // Удаляем квиз из локального состояния сразу, затем обновляем список
+        setQuizzes(prev => prev.filter(q => q._id !== quizId));
+        // Обновляем список с сервера для уверенности
+        await fetchQuizzes();
+      } else {
+        alert('Error: ' + (data.message || 'Failed to delete quiz'));
+      }
+    } catch (error) {
+      alert('Error deleting quiz');
+      console.error(error);
+    }
+  };
+
   return (
     <div className="section">
       <div className="quizzes-header">
@@ -205,6 +238,14 @@ const QuizzesManager = () => {
               <div className="task-row-actions">
                 <button className="btn-secondary" onClick={() => openSubmissions(q)}>
                   📥 View submissions
+                </button>
+                <button 
+                  className="btn-icon btn-danger"
+                  onClick={() => deleteQuiz(q._id)}
+                  title="Delete Quiz"
+                  style={{ marginLeft: '10px', backgroundColor: '#f44336', color: 'white', border: 'none', padding: '8px 12px', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  🗑️ Delete
                 </button>
               </div>
             </div>

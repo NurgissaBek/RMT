@@ -3,8 +3,10 @@ const express = require('express');
 const router = express.Router();
 const Task = require('../models/Task');
 const Submission = require('../models/Submission');
+const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { shouldLogVisit } = require('../utils/visitTracker');
 
 // @route   GET /api/tasks
 // @desc    Получить все активные задачи (с учетом групп студента)
@@ -13,17 +15,25 @@ router.get('/', protect, async (req, res) => {
     try {
         let filters = { isActive: true };
 
-        // Если это студент - показываем только задачи для его групп или общие
+        // Если это студент - показываем только задачи для его групп (задания без групп не отображаются)
         if (req.user.role === 'student') {
             const User = require('../models/User');
             const user = await User.findById(req.user.id).populate('groups');
             const userGroupIds = (user.groups || []).map(g => g._id || g);
             
-            filters.$or = [
-                { assignedGroups: { $size: 0 } }, // Общие задачи
-                { assignedGroups: { $in: userGroupIds } } // Задачи его групп
-            ];
+            if (userGroupIds.length === 0) {
+                // Если у студента нет групп, не показываем никакие задачи
+                return res.status(200).json({
+                    success: true,
+                    count: 0,
+                    tasks: []
+                });
+            }
+            
+            // Задания без групп не отображаются - показываем только задачи для его групп
+            filters.assignedGroups = { $in: userGroupIds }; // Только задачи для его групп
         }
+        // Для учителей показываем все их задачи (они могут видеть все созданные ими задачи)
 
         // Фильтры
         if (req.query.bloomLevel) {
@@ -36,10 +46,19 @@ router.get('/', protect, async (req, res) => {
             filters.programmingLanguage = req.query.language;
         }
 
-        const tasks = await Task.find(filters)
+        let tasks = await Task.find(filters)
             .populate('createdBy', 'name email')
             .populate('assignedGroups', 'name color')
             .sort('-createdAt');
+
+        // Если это студент - скрываем задачи, которые он уже сабмитнул (есть любое submission)
+        if (req.user.role === 'student') {
+            const submittedTasks = await Submission.find({ 
+                student: req.user.id
+            }).select('task');
+            const submittedTaskIds = new Set(submittedTasks.map(s => s.task.toString()));
+            tasks = tasks.filter(task => !submittedTaskIds.has(task._id.toString()));
+        }
 
         res.status(200).json({
             success: true,
@@ -78,13 +97,19 @@ router.get('/:id', protect, async (req, res) => {
             });
         }
 
-        // Логируем только если это студент открыл задачу
-        if (req.user.role === 'student') {
-            logger.info('Student opened task', {
+        // Логируем открытие задачи студентом (первое открытие за период)
+        if (req.user.role === 'student' && shouldLogVisit(req.user.id, 'task', task._id.toString())) {
+            const student = await User.findById(req.user.id).select('name');
+            const studentName = student ? student.name : 'Unknown';
+            await logger.info(`${studentName} opened task "${task.title}"`, {
                 user: req.user.id,
                 route: req.originalUrl,
                 ip: req.ip,
-                meta: { taskId: task._id, taskTitle: task.title }
+                meta: { 
+                    taskId: task._id, 
+                    taskTitle: task.title,
+                    studentName: studentName
+                }
             });
         }
 
@@ -222,6 +247,14 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
             });
         }
 
+        // Проверка: группа должна быть выбрана обязательно
+        if (!assignedGroups || !Array.isArray(assignedGroups) || assignedGroups.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Необходимо выбрать хотя бы одну группу для назначения задания'
+            });
+        }
+
         const task = await Task.create({
             title,
             description,
@@ -232,7 +265,7 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
             examples: examples || [],
             hints: hints || [],
             deadline: deadline || null,
-            assignedGroups: assignedGroups || [],
+            assignedGroups: assignedGroups, // Обязательное поле
             createdBy: req.user.id
         });
 
@@ -276,6 +309,16 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
                 success: false,
                 message: 'Вы не можете редактировать чужую задачу'
             });
+        }
+
+        // Проверка: если обновляются assignedGroups, они не должны быть пустыми
+        if (req.body.assignedGroups !== undefined) {
+            if (!Array.isArray(req.body.assignedGroups) || req.body.assignedGroups.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Необходимо выбрать хотя бы одну группу для назначения задания'
+                });
+            }
         }
 
         // Обновляем задачу

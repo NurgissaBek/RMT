@@ -146,10 +146,28 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
                             <textarea
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
-                                placeholder="Write your solution here..."
+                                onPaste={(e) => {
+                                    e.preventDefault();
+                                    alert('Copy-paste is disabled. Please type your code manually.');
+                                }}
+                                onKeyDown={(e) => {
+                                    // Block Ctrl+V, Cmd+V, and Shift+Insert
+                                    if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+                                        e.preventDefault();
+                                        alert('Copy-paste is disabled. Please type your code manually.');
+                                    }
+                                    if (e.key === 'Insert' && e.shiftKey) {
+                                        e.preventDefault();
+                                        alert('Copy-paste is disabled. Please type your code manually.');
+                                    }
+                                }}
+                                placeholder="Write your solution here... (Copy-paste is disabled)"
                                 rows="15"
                                 required
                             />
+                            <small style={{ color: '#d32f2f', marginTop: '5px', display: 'block' }}>
+                                ⚠️ Copy-paste is disabled for this task
+                            </small>
                         </div>
 
                         <div className="submission-actions">

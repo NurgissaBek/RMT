@@ -57,15 +57,9 @@ const io = new Server(server, {
 loggerUtil.init(io);
 
 io.on('connection', (socket) => {
-  loggerUtil.info(`WebSocket connected: ${socket.id}`, {
-    route: '/socket.io',
-    meta: { socketId: socket.id }
-  });
+  // Не логируем WebSocket подключения - это происходит слишком часто
   socket.on('disconnect', () => {
-    loggerUtil.info(`WebSocket disconnected: ${socket.id}`, {
-      route: '/socket.io',
-      meta: { socketId: socket.id }
-    });
+    // Не логируем отключения
   });
 });
 

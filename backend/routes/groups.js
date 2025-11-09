@@ -171,11 +171,11 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
 });
 
 // @route   DELETE /api/groups/:id
-// @desc    Удалить группу
+// @desc    Удалить группу (требуется подтверждение пароля если в группе есть студенты)
 // @access  Private (только учителя)
 router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
     try {
-        const group = await Group.findById(req.params.id);
+        const group = await Group.findById(req.params.id).populate('students');
 
         if (!group) {
             return res.status(404).json({
@@ -191,6 +191,47 @@ router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
             });
         }
 
+        // Если в группе есть студенты, требуется подтверждение пароля
+        const hasStudents = group.students && group.students.length > 0;
+        if (hasStudents) {
+            const { password } = req.body;
+            
+            if (!password) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Password required to delete group with students',
+                    requiresPassword: true
+                });
+            }
+
+            // Проверяем пароль учителя
+            const teacher = await User.findById(req.user.id).select('+password');
+            if (!teacher) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Teacher not found'
+                });
+            }
+
+            const isPasswordCorrect = await teacher.matchPassword(password);
+            if (!isPasswordCorrect) {
+                return res.status(401).json({
+                    success: false,
+                    message: 'Invalid password'
+                });
+            }
+        }
+
+        // Удаляем группу у всех студентов
+        if (hasStudents) {
+            const studentIds = group.students.map(s => s._id || s);
+            await User.updateMany(
+                { _id: { $in: studentIds } },
+                { $pull: { groups: group._id } }
+            );
+        }
+
+        // Удаляем группу
         await group.deleteOne();
 
         res.status(200).json({

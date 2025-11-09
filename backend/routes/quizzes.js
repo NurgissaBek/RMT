@@ -5,18 +5,21 @@ const QuizSubmission = require('../models/QuizSubmission');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
+const { shouldLogVisit } = require('../utils/visitTracker');
 
 // List quizzes
 router.get('/', protect, async (req, res) => {
   try {
-    let query = { isPublished: true };
+    let query = {};
     if (req.user.role === 'teacher') {
+      // teacher: see own quizzes (all, including unpublished)
       query = { createdBy: req.user.id };
     } else if (req.user.role === 'student') {
       // for students: published and either unassigned or assigned to student's groups
       const user = await User.findById(req.user.id).populate('groups');
       const groupIds = (user.groups || []).map(g => g._id || g);
       query.$or = [ { assignedGroups: { $size: 0 } }, { assignedGroups: { $in: groupIds } } ];
+      query.isPublished = true;
     }
 
     const quizzes = await Quiz.find(query)
@@ -90,14 +93,21 @@ router.get('/:id', protect, async (req, res) => {
         return res.status(403).json({ success: false, message: 'Quiz already submitted' });
       }
       doc.questions = doc.questions.map(({ text, choices, points }) => ({ text, choices, points }));
-      // Логируем открытие квиза студентом
-      const logger = require('../utils/logger');
-      logger.info('Student opened quiz', {
-        user: req.user.id,
-        route: req.originalUrl,
-        ip: req.ip,
-        meta: { quizId: quiz._id, quizTitle: quiz.title }
-      });
+      // Логируем только первое открытие квиза студентом за период (чтобы избежать спама при обновлении страницы)
+      if (shouldLogVisit(req.user.id, 'quiz', quiz._id.toString())) {
+        const student = await User.findById(req.user.id).select('name');
+        const studentName = student ? student.name : 'Unknown';
+        await logger.info(`${studentName} opened quiz "${quiz.title}"`, {
+          user: req.user.id,
+          route: req.originalUrl,
+          ip: req.ip,
+          meta: { 
+            quizId: quiz._id, 
+            quizTitle: quiz.title,
+            studentName: studentName
+          }
+        });
+      }
     }
     res.json({ success: true, quiz: doc });
   } catch (err) {
@@ -169,8 +179,9 @@ router.post('/:id/submit', protect, authorize('student'), async (req, res) => {
       await student.save();
     }
     
-    // Логируем отправку квиза студентом
-    logger.info('Student submitted quiz', {
+    // Логируем отправку квиза студентом с именем
+    const studentName = student ? student.name : 'Unknown';
+    await logger.info(`${studentName} submitted quiz "${quiz.title}"`, {
       user: req.user.id,
       route: req.originalUrl,
       ip: req.ip,
@@ -179,7 +190,8 @@ router.post('/:id/submit', protect, authorize('student'), async (req, res) => {
         quizTitle: quiz.title,
         score: score,
         maxScore: max,
-        percentage: percentage
+        percentage: percentage,
+        studentName: studentName
       }
     });
     
@@ -309,20 +321,33 @@ router.put('/submissions/:submissionId/review', protect, authorize('teacher'), a
       .populate('student', 'name email points badges')
       .populate('quiz', 'title');
 
-    logger.info('Quiz submission reviewed', {
+    // Не логируем действия преподавателя по проверке квизов - только действия студентов
+
+    res.json({ success: true, submission: updatedSubmission });
+  } catch (err) {
+    logger.error('Quizzes route error', {
       user: req.user ? req.user.id : null,
       route: req.originalUrl,
       ip: req.ip,
-      meta: {
-        submissionId: updatedSubmission._id,
-        quizId: updatedSubmission.quiz?._id,
-        quizTitle: updatedSubmission.quiz?.title,
-        score: updatedSubmission.score,
-        badges: updatedSubmission.awardedBadges.map(b => b.name)
-      }
+      meta: { error: err.message, stack: err.stack }
     });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
-    res.json({ success: true, submission: updatedSubmission });
+// Delete quiz (teacher who created)
+router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    if (quiz.createdBy.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Forbidden' });
+    
+    // Удаляем все submissions этого квиза
+    await QuizSubmission.deleteMany({ quiz: quiz._id });
+    
+    // Удаляем квиз
+    await quiz.deleteOne();
+    res.json({ success: true, message: 'Quiz deleted' });
   } catch (err) {
     logger.error('Quizzes route error', {
       user: req.user ? req.user.id : null,

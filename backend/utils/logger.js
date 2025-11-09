@@ -54,6 +54,17 @@ function init(io) {
 // Универсальная запись (в консоль/файлы через winston) и в Mongo
 async function log(level, message, { user=null, route=null, ip=null, meta={} } = {}) {
   try {
+    // Пропускаем логи WebSocket подключений и отключений - не сохраняем в MongoDB
+    if (route === '/socket.io' || /WebSocket (connected|disconnected)/i.test(message)) {
+      // Только логируем в консоль, но не сохраняем в MongoDB
+      logger.log({ 
+        level, 
+        message: message, 
+        meta: { ...meta, user, route, ip } 
+      });
+      return;
+    }
+    
     // Формируем читаемое сообщение для консоли
     const logMessage = route 
       ? `${message} | Route: ${route}${user ? ` | User: ${user}` : ''}${ip ? ` | IP: ${ip}` : ''}`
@@ -66,17 +77,19 @@ async function log(level, message, { user=null, route=null, ip=null, meta={} } =
       meta: { ...meta, user, route, ip } 
     });
 
-    // 2) persist to Mongo
+    // 2) persist to Mongo (только важные логи, не WebSocket)
     const doc = new LogModel({
       level, message, meta, user, route, ip
     });
     await doc.save();
 
     // 3) emit via socket.io for live UI (если инициализирован)
-    if (ioInstance) {
+    // Отправляем логи всем подключенным клиентам - они сами отфильтруют по группам
+    if (ioInstance && user) {
+      // Отправляем только логи с пользователем (действия студентов)
       ioInstance.emit('live-log', {
         _id: doc._id,
-        level, message, meta, user, route, ip, createdAt: doc.createdAt
+        level, message, meta, user: user, route, ip, createdAt: doc.createdAt
       });
     }
   } catch (err) {

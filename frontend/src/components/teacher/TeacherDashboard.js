@@ -275,6 +275,46 @@ const TeacherDashboard = () => {
         }
     };
 
+    const handleDeleteGroup = async (groupId, hasStudents) => {
+        let password = null;
+        
+        // Если в группе есть студенты, требуется пароль
+        if (hasStudents) {
+            password = window.prompt('This group has students. Please enter your password to delete:');
+            if (!password) {
+                return; // Отменено пользователем
+            }
+        } else {
+            if (!window.confirm('Delete this group?')) return;
+        }
+
+        try {
+            const response = await fetch(`${API_BASE}/api/groups/${groupId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ password })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('✅ Group deleted!');
+                fetchData();
+            } else {
+                if (data.requiresPassword) {
+                    alert('Password required to delete group with students');
+                } else {
+                    alert('Ошибка: ' + data.message);
+                }
+            }
+        } catch (error) {
+            alert('Error deleting group');
+        }
+    };
+
     const handleReviewSubmission = async (submissionId, status, points, feedback, badges = []) => {
         try {
             const response = await fetch(`${API_BASE}/api/submissions/${submissionId}/review`, {
@@ -709,6 +749,13 @@ const TeacherDashboard = () => {
                                             }}
                                         >
                                             ➕ Add Student
+                                        </button>
+                                        <button 
+                                            className="btn-secondary btn-danger"
+                                            onClick={() => handleDeleteGroup(group._id, (group.students?.length || 0) > 0)}
+                                            style={{ marginLeft: '10px', backgroundColor: '#f44336', color: 'white' }}
+                                        >
+                                            🗑️ Delete Group
                                         </button>
                                     </div>
                                 </div>
