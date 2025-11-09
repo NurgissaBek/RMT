@@ -24,8 +24,8 @@ exports.protect = async (req, res, next) => {
         // Проверяем токен и декодируем
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-        // Находим пользователя по ID из токена
-        req.user = await User.findById(decoded.id);
+        // Находим пользователя по ID из токена и загружаем группы
+        req.user = await User.findById(decoded.id).populate('groups');
 
         if (!req.user) {
             return res.status(404).json({

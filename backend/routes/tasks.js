@@ -4,6 +4,7 @@ const router = express.Router();
 const Task = require('../models/Task');
 const Submission = require('../models/Submission');
 const { protect, authorize } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // @route   GET /api/tasks
 // @desc    Получить все активные задачи (с учетом групп студента)
@@ -16,7 +17,7 @@ router.get('/', protect, async (req, res) => {
         if (req.user.role === 'student') {
             const User = require('../models/User');
             const user = await User.findById(req.user.id).populate('groups');
-            const userGroupIds = user.groups || [];
+            const userGroupIds = (user.groups || []).map(g => g._id || g);
             
             filters.$or = [
                 { assignedGroups: { $size: 0 } }, // Общие задачи
@@ -47,7 +48,12 @@ router.get('/', protect, async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении задач',
@@ -68,7 +74,17 @@ router.get('/:id', protect, async (req, res) => {
         if (!task) {
             return res.status(404).json({
                 success: false,
-                message: 'Задача не найдена'
+                message: 'Task not found'
+            });
+        }
+
+        // Логируем только если это студент открыл задачу
+        if (req.user.role === 'student') {
+            logger.info('Student opened task', {
+                user: req.user.id,
+                route: req.originalUrl,
+                ip: req.ip,
+                meta: { taskId: task._id, taskTitle: task.title }
             });
         }
 
@@ -78,10 +94,15 @@ router.get('/:id', protect, async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
-            message: 'Ошибка при получении задачи',
+            message: 'Error fetching task',
             error: error.message
         });
     }
@@ -162,7 +183,12 @@ router.get('/:id/stats', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении статистики',
@@ -217,7 +243,12 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при создании задачи',
@@ -261,7 +292,12 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при обновлении задачи',
@@ -300,7 +336,12 @@ router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Tasks route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при удалении задачи',

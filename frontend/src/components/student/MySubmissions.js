@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
+import { API_BASE } from '../../config';
 import './MySubmissions.css';
 
 const MySubmissions = () => {
@@ -14,7 +15,7 @@ const MySubmissions = () => {
 
     const fetchSubmissions = async () => {
         try {
-            const response = await fetch('http://127.0.0.1:5000/api/submissions/my', {
+            const response = await fetch(`${API_BASE}/api/submissions/my`, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             const data = await response.json();
@@ -22,7 +23,7 @@ const MySubmissions = () => {
                 setSubmissions(data.submissions);
             }
         } catch (error) {
-            console.error('Ошибка загрузки:', error);
+            console.error('Error loading:', error);
         } finally {
             setLoading(false);
         }
@@ -30,10 +31,10 @@ const MySubmissions = () => {
 
     const getStatusBadge = (status) => {
         const badges = {
-            pending: { text: '⏳ На проверке', class: 'status-pending' },
-            approved: { text: '✅ Принято', class: 'status-approved' },
-            rejected: { text: '❌ Отклонено', class: 'status-rejected' },
-            needs_revision: { text: '🔄 Нужны правки', class: 'status-revision' }
+            pending: { text: '⏳ Pending Review', class: 'status-pending' },
+            approved: { text: '✅ Approved', class: 'status-approved' },
+            rejected: { text: '❌ Rejected', class: 'status-rejected' },
+            needs_revision: { text: '🔄 Needs Revision', class: 'status-revision' }
         };
         return badges[status] || badges.pending;
     };
@@ -44,43 +45,43 @@ const MySubmissions = () => {
     });
 
     if (loading) {
-        return <div className="loading">Загрузка...</div>;
+        return <div className="loading">Loading...</div>;
     }
 
     return (
         <div className="my-submissions">
             <div className="submissions-header">
-                <h2>📝 Мои решения</h2>
+                <h2>📝 My Submissions</h2>
                 <div className="filter-buttons">
                     <button 
                         className={filter === 'all' ? 'active' : ''} 
                         onClick={() => setFilter('all')}
                     >
-                        Все ({submissions.length})
+                        All ({submissions.length})
                     </button>
                     <button 
                         className={filter === 'approved' ? 'active' : ''} 
                         onClick={() => setFilter('approved')}
                     >
-                        ✅ Принятые ({submissions.filter(s => s.status === 'approved').length})
+                        ✅ Approved ({submissions.filter(s => s.status === 'approved').length})
                     </button>
                     <button 
                         className={filter === 'pending' ? 'active' : ''} 
                         onClick={() => setFilter('pending')}
                     >
-                        ⏳ На проверке ({submissions.filter(s => s.status === 'pending').length})
+                        ⏳ Pending ({submissions.filter(s => s.status === 'pending').length})
                     </button>
                     <button 
                         className={filter === 'rejected' ? 'active' : ''} 
                         onClick={() => setFilter('rejected')}
                     >
-                        ❌ Отклоненные ({submissions.filter(s => s.status === 'rejected').length})
+                        ❌ Rejected ({submissions.filter(s => s.status === 'rejected').length})
                     </button>
                 </div>
             </div>
 
             {filteredSubmissions.length === 0 ? (
-                <p className="empty-message">Нет решений в этой категории</p>
+                <p className="empty-message">No submissions in this category</p>
             ) : (
                 <div className="submissions-grid">
                     {filteredSubmissions.map(sub => {
@@ -88,7 +89,7 @@ const MySubmissions = () => {
                         return (
                             <div key={sub._id} className="submission-card">
                                 <div className="submission-card-header">
-                                    <h3>{sub.task?.title || 'Задача удалена'}</h3>
+                                    <h3>{sub.task?.title || 'Task Deleted'}</h3>
                                     <span className={`status-badge ${statusBadge.class}`}>
                                         {statusBadge.text}
                                     </span>
@@ -96,36 +97,36 @@ const MySubmissions = () => {
 
                                 <div className="submission-info">
                                     <div className="info-item">
-                                        <span className="label">Попытка:</span>
+                                        <span className="label">Attempt:</span>
                                         <span className="value">#{sub.attemptNumber}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="label">Язык:</span>
+                                        <span className="label">Language:</span>
                                         <span className="value">{sub.language}</span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="label">Баллы:</span>
+                                        <span className="label">Points:</span>
                                         <span className="value">
                                             {sub.status === 'approved' ? `💎 ${sub.pointsAwarded}` : '-'}
                                         </span>
                                     </div>
                                     <div className="info-item">
-                                        <span className="label">Отправлено:</span>
+                                        <span className="label">Submitted:</span>
                                         <span className="value">
-                                            {new Date(sub.submittedAt).toLocaleDateString('ru-RU')}
+                                            {new Date(sub.submittedAt).toLocaleDateString()}
                                         </span>
                                     </div>
                                 </div>
 
                                 {sub.feedback && (
                                     <div className="feedback-section">
-                                        <strong>Комментарий учителя:</strong>
+                                        <strong>Teacher Comment:</strong>
                                         <p>{sub.feedback}</p>
                                     </div>
                                 )}
 
                                 <details className="code-details">
-                                    <summary>Показать код</summary>
+                                    <summary>Show Code</summary>
                                     <pre className="code-preview">{sub.code}</pre>
                                 </details>
                             </div>

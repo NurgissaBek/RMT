@@ -19,7 +19,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
         if (!taskId || !code || !language) {
             return res.status(400).json({
                 success: false,
-                message: 'Пожалуйста, заполните все поля'
+                message: 'Please fill all fields'
             });
         }
 
@@ -27,7 +27,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
         if (!task) {
             return res.status(404).json({
                 success: false,
-                message: 'Задача не найдена'
+                message: 'Task not found'
             });
         }
 
@@ -35,7 +35,7 @@ router.post('/', protect, authorize('student'), async (req, res) => {
         if (task.deadline && new Date() > new Date(task.deadline)) {
             return res.status(400).json({
                 success: false,
-                message: 'Дедлайн для этой задачи истек'
+                message: 'Deadline for this task has expired'
             });
         }
 
@@ -98,18 +98,36 @@ router.post('/', protect, authorize('student'), async (req, res) => {
             }
         }
 
+        // Логируем отправку решения студентом
+        logger.info('Student submitted solution', {
+            user: req.user.id,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { 
+                taskId: taskId, 
+                taskTitle: task.title,
+                language: language,
+                attemptNumber: previousSubmissions + 1
+            }
+        });
+
         res.status(201).json({
             success: true,
-            message: '��襭�� ��ࠢ���� �� �஢���',
+            message: 'Solution submitted',
             submission,
             autoCheck: autoCheckSummary
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
-            message: 'Ошибка при отправке решения',
+            message: 'Error submitting solution',
             error: error.message
         });
     }
@@ -131,7 +149,12 @@ router.get('/my', protect, authorize('student'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении решений',
@@ -157,7 +180,12 @@ router.get('/pending', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении решений',
@@ -196,7 +224,12 @@ router.get('/:id', protect, async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении решения',
@@ -241,14 +274,14 @@ router.put('/:id', protect, authorize('student'), async (req, res) => {
 
         await submission.save();
 
-        // Логируем (используем переменные из submission, не объявляем заново)
-        logger.info('Submission reviewed', { 
+        // Логируем
+        logger.info('Submission updated', { 
             user: req.user ? req.user.id : null, 
             route: req.originalUrl, 
             ip: req.ip, 
             meta: { 
                 submissionId: submission._id, 
-                taskId: submission.task, // убрал ._id
+                taskId: submission.task ? (submission.task._id || submission.task) : null,
                 language: submission.language 
             } 
         });
@@ -264,9 +297,8 @@ router.put('/:id', protect, authorize('student'), async (req, res) => {
             user: req.user ? req.user.id : null, 
             route: req.originalUrl, 
             ip: req.ip, 
-            meta: { error: error.message } 
+            meta: { error: error.message, stack: error.stack } 
         });
-        console.error(error);
         res.status(500).json({
             success: false,
             message: 'Ошибка при обновлении решения',
@@ -311,7 +343,12 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при удалении решения',
@@ -325,7 +362,7 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
 // @access  Private (только учителя)
 router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
     try {
-        const { status, pointsAwarded, feedback } = req.body;
+        const { status, pointsAwarded, feedback, badges = [] } = req.body;
 
         if (!status) {
             return res.status(400).json({
@@ -350,42 +387,108 @@ router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
         submission.reviewedBy = req.user.id;
         submission.reviewedAt = Date.now();
 
+        const student = await User.findById(submission.student._id);
+        if (!student) {
+            return res.status(404).json({
+                success: false,
+                message: 'Студент не найден'
+            });
+        }
+
+        const previousPoints = submission.pointsAwarded || 0;
+        let updatedPoints = previousPoints;
+
         if (status === 'approved') {
-            const points = (pointsAwarded !== undefined && pointsAwarded !== null) ? pointsAwarded : submission.task.points;
-            submission.pointsAwarded = points;
+            const targetPoints = (pointsAwarded !== undefined && pointsAwarded !== null)
+                ? Number(pointsAwarded)
+                : submission.task.points;
+            updatedPoints = Math.max(0, targetPoints);
+        } else {
+            updatedPoints = 0;
+        }
 
-            const student = await User.findById(submission.student._id);
-            student.points += points;
+        const delta = updatedPoints - previousPoints;
+        if (delta !== 0) {
+            student.points = Math.max(0, (student.points || 0) + delta);
+        }
+        submission.pointsAwarded = updatedPoints;
 
-            // Проверка достижений
-            if (student.points === points && student.badges.length === 0) {
+        if (status === 'approved') {
+            if (!student.badges.some(b => b.name === 'First Task')) {
                 student.badges.push({
                     name: 'First Task',
-                    description: 'Решил первую задачу'
+                    description: 'Решил первую задачу',
+                    earnedAt: new Date(),
+                    icon: '',
+                    rarity: 'common'
                 });
             }
 
             if (student.points >= 100 && !student.badges.find(b => b.name === 'Century')) {
                 student.badges.push({
                     name: 'Century',
-                    description: 'Набрал 100 баллов'
+                    description: 'Набрал 100 баллов',
+                    earnedAt: new Date(),
+                    icon: '',
+                    rarity: 'rare'
                 });
             }
 
             if (student.points >= 500 && !student.badges.find(b => b.name === 'Pro Coder')) {
                 student.badges.push({
                     name: 'Pro Coder',
-                    description: 'Набрал 500 баллов'
+                    description: 'Набрал 500 баллов',
+                    earnedAt: new Date(),
+                    icon: '',
+                    rarity: 'epic'
                 });
             }
+        }
 
-            await student.save();
+        const normalizedBadges = Array.isArray(badges) ? badges.filter(b => b && b.name) : [];
+        if (normalizedBadges.length > 0) {
+            const now = new Date();
+            submission.awardedBadges = normalizedBadges.map(badge => ({
+                name: badge.name,
+                description: badge.description || '',
+                icon: badge.icon || '',
+                rarity: ['common', 'rare', 'epic', 'legendary'].includes(badge.rarity) ? badge.rarity : 'common',
+                awardedBy: req.user.id,
+                awardedAt: now
+            }));
+
+            normalizedBadges.forEach(badge => {
+                const alreadyHas = student.badges?.some(existing => existing.name === badge.name);
+                if (!alreadyHas) {
+                    student.badges.push({
+                        name: badge.name,
+                        description: badge.description || '',
+                        icon: badge.icon || '',
+                        rarity: ['common', 'rare', 'epic', 'legendary'].includes(badge.rarity) ? badge.rarity : 'common',
+                        earnedAt: now
+                    });
+                }
+            });
+        } else {
+            submission.awardedBadges = [];
         }
 
         await submission.save();
+        await student.save();
 
-        // логируем
-        logger.info('Submission reviewed', { user: req.user ? req.user.id : null, route: req.originalUrl, ip: req.ip, meta: { submissionId: submission._id, taskId: submission.task._id, language: submission.language } });
+        logger.info('Submission reviewed', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: {
+                submissionId: submission._id,
+                taskId: submission.task ? (submission.task._id || submission.task) : null,
+                language: submission.language,
+                status,
+                pointsAwarded: submission.pointsAwarded,
+                badges: submission.awardedBadges.map(b => b.name)
+            }
+        });
 
         res.status(200).json({
             success: true,
@@ -394,8 +497,12 @@ router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        logger.error('Submission review error', { user: req.user ? req.user.id : null, route: req.originalUrl, ip: req.ip, meta: { error: error.message } });
-        console.error(error);
+        logger.error('Submission review error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при проверке решения',
@@ -433,7 +540,12 @@ router.get('/stats/student', protect, authorize('student'), async (req, res) => 
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Submissions route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении статистики',

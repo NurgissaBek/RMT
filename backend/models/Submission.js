@@ -97,7 +97,19 @@ const SubmissionSchema = new mongoose.Schema({
     }],
     autoScore: { type: Number, default: 0 },
     maxScore: { type: Number, default: 0 },
-    percentage: { type: Number, default: 0 }
+    percentage: { type: Number, default: 0 },
+    awardedBadges: [{
+        name: { type: String, required: true },
+        description: { type: String, default: '' },
+        icon: { type: String, default: '' },
+        rarity: {
+            type: String,
+            enum: ['common', 'rare', 'epic', 'legendary'],
+            default: 'common'
+        },
+        awardedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        awardedAt: { type: Date, default: Date.now }
+    }]
 });
 
 // INDEX: Быстрый поиск по студенту и задаче

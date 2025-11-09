@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 router.get('/', protect, async (req, res) => {
     try {
@@ -19,7 +20,12 @@ router.get('/', protect, async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Leaderboard route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении leaderboard',

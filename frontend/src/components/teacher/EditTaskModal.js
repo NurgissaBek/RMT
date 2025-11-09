@@ -51,13 +51,13 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
         <div className="modal-overlay" onClick={onClose}>
             <div className="edit-task-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="modal-header">
-                    <h2>✏️ Редактировать задачу</h2>
+                    <h2>✏️ Edit Task</h2>
                     <button className="btn-close" onClick={onClose}>✕</button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="edit-task-form">
                     <div className="form-group">
-                        <label>Название задачи *</label>
+                        <label>Task Title *</label>
                         <input
                             type="text"
                             name="title"
@@ -74,13 +74,13 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                                 name="autoCheckEnabled"
                                 checked={formData.autoCheckEnabled}
                                 onChange={(e)=> setFormData({ ...formData, autoCheckEnabled: e.target.checked })}
-                            /> Проверка кодом (Judge0)
+                            /> Auto-check with code (Judge0)
                         </label>
-                        <small>Если выключено — проверка только вручную преподавателем</small>
+                        <small>If disabled, only manual review by teacher</small>
                     </div>
 
                     <div className="form-group">
-                        <label>Описание задачи *</label>
+                        <label>Task Description *</label>
                         <textarea
                             name="description"
                             value={formData.description}
@@ -92,7 +92,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
 
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Уровень Блума *</label>
+                            <label>Bloom Level *</label>
                             <select
                                 name="bloomLevel"
                                 value={formData.bloomLevel}
@@ -108,7 +108,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Сложность (1-5) *</label>
+                            <label>Difficulty (1-5) *</label>
                             <input
                                 type="number"
                                 name="difficulty"
@@ -123,7 +123,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
 
                     <div className="form-row">
                         <div className="form-group">
-                            <label>Баллы *</label>
+                            <label>Points *</label>
                             <input
                                 type="number"
                                 name="points"
@@ -135,7 +135,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                         </div>
 
                         <div className="form-group">
-                            <label>Язык программирования</label>
+                            <label>Programming Language</label>
                             <select
                                 name="programmingLanguage"
                                 value={formData.programmingLanguage}
@@ -150,7 +150,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Дедлайн (опционально)</label>
+                        <label>Deadline (optional)</label>
                         <input
                             type="datetime-local"
                             name="deadline"
@@ -160,7 +160,7 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Назначить группам (оставьте пустым для всех студентов)</label>
+                        <label>Assign to Groups (leave empty for all students)</label>
                         <select
                             multiple
                             name="assignedGroups"
@@ -170,22 +170,22 @@ const EditTaskModal = ({ task, onClose, onUpdate, groups }) => {
                         >
                             {groups.map(group => (
                                 <option key={group._id} value={group._id}>
-                                    {group.name} ({group.students.length} студ.)
+                                    {group.name} ({group.students?.length || 0} students)
                                 </option>
                             ))}
                         </select>
                         <div style={{ marginTop: 8 }}>
-                          <button type="button" className="btn-cancel" onClick={()=>setFormData({ ...formData, assignedGroups: [] })}>Очистить группы</button>
+                          <button type="button" className="btn-cancel" onClick={()=>setFormData({ ...formData, assignedGroups: [] })}>Clear Groups</button>
                         </div>
-                        <small>Удерживайте Ctrl/Cmd для выбора нескольких групп</small>
+                        <small>Hold Ctrl/Cmd to select multiple groups</small>
                     </div>
 
                     <div className="form-actions">
                         <button type="button" onClick={onClose} className="btn-cancel">
-                            Отмена
+                            Cancel
                         </button>
                         <button type="submit" className="btn-save" disabled={loading}>
-                            {loading ? 'Сохранение...' : '✅ Сохранить'}
+                            {loading ? 'Saving...' : '✅ Save'}
                         </button>
                     </div>
                 </form>

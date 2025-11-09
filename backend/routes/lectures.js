@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Lecture = require('../models/Lecture');
 const { protect, authorize } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // List lectures (students see published + assigned or unassigned)
 router.get('/', protect, async (req, res) => {
@@ -12,7 +13,8 @@ router.get('/', protect, async (req, res) => {
       query = { createdBy: req.user.id };
     } else if (req.user.role === 'student') {
       // student: published and either unassigned or assigned to any of user's groups
-      const user = req.user; // fetched by auth middleware
+      const User = require('../models/User');
+      const user = await User.findById(req.user.id).populate('groups');
       const groupIds = (user.groups || []).map(g => g._id || g);
       query.$or = [ { assignedGroups: { $size: 0 } }, { assignedGroups: { $in: groupIds } } ];
       query.isPublished = true;
@@ -23,6 +25,12 @@ router.get('/', protect, async (req, res) => {
       .sort('-createdAt');
     res.json({ success: true, count: lectures.length, lectures });
   } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -39,6 +47,12 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
     });
     res.status(201).json({ success: true, lecture });
   } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -50,8 +64,25 @@ router.get('/:id', protect, async (req, res) => {
       .populate('createdBy', 'name email')
       .populate('assignedGroups', 'name color');
     if (!lecture) return res.status(404).json({ success: false, message: 'Lecture not found' });
+    
+    // Логируем открытие лекции студентом
+    if (req.user.role === 'student') {
+      logger.info('Student opened lecture', {
+        user: req.user.id,
+        route: req.originalUrl,
+        ip: req.ip,
+        meta: { lectureId: lecture._id, lectureTitle: lecture.title }
+      });
+    }
+    
     res.json({ success: true, lecture });
   } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -66,6 +97,12 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
       .populate('assignedGroups', 'name color');
     res.json({ success: true, lecture });
   } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -80,6 +117,12 @@ router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
     await lecture.save();
     res.json({ success: true, message: 'Lecture unpublished' });
   } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
     res.status(500).json({ success: false, error: err.message });
   }
 });

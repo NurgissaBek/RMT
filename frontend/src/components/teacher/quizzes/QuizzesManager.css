@@ -1,0 +1,40 @@
+.quizzes-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.quiz-submissions-modal {
+  max-width: 720px;
+  width: 95%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.quiz-submissions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.quiz-submission-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 16px;
+}
+
+.quiz-submission-card p {
+  margin: 4px 0;
+  color: #475569;
+}
+
+.task-row-actions {
+  display: flex;
+  gap: 10px;
+}
+

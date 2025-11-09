@@ -14,7 +14,7 @@ function AppContent() {
     return (
       <div className="loading-container">
         <div className="spinner"></div>
-        <p>Загрузка...</p>
+        <p>Loading...</p>
       </div>
     );
   }
@@ -35,8 +35,8 @@ function AppContent() {
         <div className="header-content">
           <h1>🎮 Gamified Programming</h1>
           <div className="user-info">
-            <span>👤 {user.name} ({user.role === 'student' ? 'Студент' : 'Учитель'})</span>
-            <button onClick={logout} className="btn-logout">Выход</button>
+            <span>👤 {user.name} ({user.role === 'student' ? 'Student' : 'Teacher'})</span>
+            <button onClick={logout} className="btn-logout">Logout</button>
           </div>
         </div>
       </header>

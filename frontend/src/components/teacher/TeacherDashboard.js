@@ -39,6 +39,9 @@ const TeacherDashboard = () => {
         color: '#667eea',
         studentEmails: '' // optional comma/newline separated
     });
+    const [selectedGroup, setSelectedGroup] = useState(null);
+    const [showAddStudent, setShowAddStudent] = useState(false);
+    const [studentEmailToAdd, setStudentEmailToAdd] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -68,7 +71,7 @@ const TeacherDashboard = () => {
             if (groupsData.success) setGroups(groupsData.groups);
 
         } catch (error) {
-            console.error('Ошибка загрузки:', error);
+            console.error('Error loading:', error);
         }
     };
 
@@ -88,7 +91,7 @@ const TeacherDashboard = () => {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Задача создана!');
+                alert('✅ Task created!');
                 setShowCreateTask(false);
                 setNewTask({
                     title: '',
@@ -102,10 +105,10 @@ const TeacherDashboard = () => {
                 });
                 fetchData();
             } else {
-                alert('Ошибка: ' + data.message);
+                alert('Error: ' + data.message);
             }
         } catch (error) {
-            alert('Ошибка создания задачи');
+            alert('Error creating task');
         }
     };
 
@@ -123,7 +126,7 @@ const TeacherDashboard = () => {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Задача обновлена!');
+                alert('✅ Task updated!');
                 fetchData();
                 return true;
             } else {
@@ -131,13 +134,13 @@ const TeacherDashboard = () => {
                 return false;
             }
         } catch (error) {
-            alert('Ошибка обновления задачи');
+            alert('Error updating task');
             return false;
         }
     };
 
     const handleDeleteTask = async (taskId) => {
-        if (!window.confirm('Удалить эту задачу?')) return;
+        if (!window.confirm('Delete this task?')) return;
 
         try {
             const response = await fetch(`${API_BASE}/api/tasks/${taskId}`, {
@@ -148,13 +151,13 @@ const TeacherDashboard = () => {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Задача удалена!');
+                alert('✅ Task deleted!');
                 fetchData();
             } else {
                 alert('Ошибка: ' + data.message);
             }
         } catch (error) {
-            alert('Ошибка удаления задачи');
+            alert('Error deleting task');
         }
     };
 
@@ -174,7 +177,7 @@ const TeacherDashboard = () => {
                 alert('Ошибка: ' + data.message);
             }
         } catch (error) {
-            alert('Ошибка загрузки статистики');
+            alert('Error loading statistics');
         }
     };
 
@@ -194,7 +197,7 @@ const TeacherDashboard = () => {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Группа создана!');
+                alert('✅ Group created!');
                 // optionally add students by email
                 if (newGroup.studentEmails && newGroup.studentEmails.trim()) {
                     const emails = newGroup.studentEmails.split(/[,\n;]/).map(e => e.trim()).filter(Boolean);
@@ -218,11 +221,61 @@ const TeacherDashboard = () => {
                 alert('Ошибка: ' + data.message);
             }
         } catch (error) {
-            alert('Ошибка создания группы');
+            alert('Error creating group');
         }
     };
 
-    const handleReviewSubmission = async (submissionId, status, points, feedback) => {
+    const handleAddStudentToGroup = async (groupId, email) => {
+        try {
+            const response = await fetch(`${API_BASE}/api/groups/${groupId}/students`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ studentEmail: email })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('✅ Student added to group!');
+                setStudentEmailToAdd('');
+                setShowAddStudent(false);
+                fetchData();
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        } catch (error) {
+            alert('Error adding student');
+        }
+    };
+
+    const handleRemoveStudentFromGroup = async (groupId, studentId) => {
+        if (!window.confirm('Remove student from group?')) return;
+
+        try {
+            const response = await fetch(`${API_BASE}/api/groups/${groupId}/students/${studentId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                alert('✅ Student removed from group!');
+                fetchData();
+            } else {
+                alert('Ошибка: ' + data.message);
+            }
+        } catch (error) {
+            alert('Error removing student');
+        }
+    };
+
+    const handleReviewSubmission = async (submissionId, status, points, feedback, badges = []) => {
         try {
             const response = await fetch(`${API_BASE}/api/submissions/${submissionId}/review`, {
                 method: 'PUT',
@@ -230,19 +283,22 @@ const TeacherDashboard = () => {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ status, pointsAwarded: points, feedback })
+                body: JSON.stringify({ status, pointsAwarded: points, feedback, badges })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Решение проверено!');
+                alert('✅ Submission reviewed!');
                 fetchData();
+                return true;
             } else {
                 alert('Ошибка: ' + data.message);
+                return false;
             }
         } catch (error) {
-            alert('Ошибка проверки');
+            alert('Error reviewing submission');
+            return false;
         }
     };
     const exportLogs = async (format = 'csv') => {
@@ -262,17 +318,17 @@ const TeacherDashboard = () => {
     return (
         <div className="teacher-dashboard">
             <div className="dashboard-header">
-                <h2>Панель учителя 👨‍🏫</h2>
+                <h2>Teacher Dashboard 👨‍🏫</h2>
                 <div className="header-actions">
                     <button className="btn-create" onClick={() => setShowCreateGroup(true)}>
-                        ➕ Создать группу
+                        ➕ Create Group
                     </button>
                     <button className="btn-create" onClick={() => setShowCreateTask(true)}>
-                        ➕ Создать задачу
+                        ➕ Create Task
                     </button>
 
-                    <button onClick={() => exportLogs('csv')}>📥 Экспорт CSV</button>
-                    <button onClick={() => exportLogs('xlsx')}>📊 Экспорт XLSX</button>
+                    <button onClick={() => exportLogs('csv')} className="btn-secondary">📥 Export CSV</button>
+                    <button onClick={() => exportLogs('xlsx')} className="btn-secondary">📊 Export XLSX</button>
                 </div>
             </div>
 
@@ -284,10 +340,10 @@ const TeacherDashboard = () => {
             {showCreateTask && (
                 <div className="modal-overlay" onClick={() => setShowCreateTask(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h3>Создать новую задачу</h3>
+                        <h3>Create New Task</h3>
                         <form onSubmit={handleCreateTask}>
                             <div className="form-group">
-                                <label>Название *</label>
+                                <label>Title *</label>
                                 <input
                                     type="text"
                                     value={newTask.title}
@@ -298,13 +354,13 @@ const TeacherDashboard = () => {
 
                         <div className="form-group">
                             <label>
-                                <input type="checkbox" checked={newTask.autoCheckEnabled} onChange={(e)=>setNewTask({...newTask, autoCheckEnabled: e.target.checked})} /> Проверка кодом (Judge0)
+                                <input type="checkbox" checked={newTask.autoCheckEnabled} onChange={(e)=>setNewTask({...newTask, autoCheckEnabled: e.target.checked})} /> Auto-check with code (Judge0)
                             </label>
-                            <small>Если выключено — проверка только вручную преподавателем</small>
+                            <small>If disabled, only manual review by teacher</small>
                         </div>
 
                             <div className="form-group">
-                                <label>Описание *</label>
+                                <label>Description *</label>
                                 <textarea
                                     value={newTask.description}
                                     onChange={(e) => setNewTask({...newTask, description: e.target.value})}
@@ -315,7 +371,7 @@ const TeacherDashboard = () => {
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Уровень Блума</label>
+                                    <label>Bloom Level</label>
                                     <select
                                         value={newTask.bloomLevel}
                                         onChange={(e) => setNewTask({...newTask, bloomLevel: e.target.value})}
@@ -328,7 +384,7 @@ const TeacherDashboard = () => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Сложность (1-5)</label>
+                                    <label>Difficulty (1-5)</label>
                                     <input
                                         type="number"
                                         min="1"
@@ -341,7 +397,7 @@ const TeacherDashboard = () => {
 
                             <div className="form-row">
                                 <div className="form-group">
-                                    <label>Баллы</label>
+                                    <label>Points</label>
                                     <input
                                         type="number"
                                         min="1"
@@ -351,7 +407,7 @@ const TeacherDashboard = () => {
                                 </div>
 
                                 <div className="form-group">
-                                    <label>Язык</label>
+                                    <label>Programming Language</label>
                                     <select
                                         value={newTask.programmingLanguage}
                                         onChange={(e) => setNewTask({...newTask, programmingLanguage: e.target.value})}
@@ -365,7 +421,7 @@ const TeacherDashboard = () => {
                             </div>
 
                             <div className="form-group">
-                                <label>Дедлайн (опционально)</label>
+                                <label>Deadline (optional)</label>
                                 <input
                                     type="datetime-local"
                                     value={newTask.deadline}
@@ -374,7 +430,7 @@ const TeacherDashboard = () => {
                             </div>
 
                             <div className="form-group">
-                                <label>Назначить группам (пусто = все студенты)</label>
+                                <label>Assign to Groups (empty = all students)</label>
                                 <select
                                     multiple
                                     value={newTask.assignedGroups}
@@ -386,41 +442,20 @@ const TeacherDashboard = () => {
                                 >
                                     {groups.map(group => (
                                         <option key={group._id} value={group._id}>
-                                            {group.name} ({group.students.length} студ.)
+                                            {group.name} ({group.students?.length || 0} students)
                                         </option>
                                     ))}
                                 </select>
-                                <small>Ctrl/Cmd для выбора нескольких</small>
+                                <small>Hold Ctrl/Cmd to select multiple</small>
                             </div>
 
-                            <div className="form-group">
-                                <label>Emails студентов (через запятую или с новой строки)</label>
-                                <textarea
-                                    rows="3"
-                                    value={newGroup.studentEmails || ''}
-                                    onChange={(e) => setNewGroup({ ...newGroup, studentEmails: e.target.value })}
-                                    placeholder="student1@example.com, student2@example.com"
-                                />
-                                <small>Будут добавлены в группу сразу после создания</small>
-                            </div>
-
-                            <div className="form-group">
-                                <label>Emails студентов (через запятую или с новой строки)</label>
-                                <textarea
-                                    rows="3"
-                                    value={newGroup.studentEmails || ''}
-                                    onChange={(e) => setNewGroup({ ...newGroup, studentEmails: e.target.value })}
-                                    placeholder="student1@example.com, student2@example.com"
-                                />
-                                <small>Будут добавлены в группу сразу после создания</small>
-                            </div>
 
                             <div className="modal-actions">
                                 <button type="button" onClick={() => setShowCreateTask(false)} className="btn-cancel">
-                                    Отмена
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn-submit">
-                                    Создать
+                                    Create
                                 </button>
                             </div>
                         </form>
@@ -432,10 +467,10 @@ const TeacherDashboard = () => {
             {showCreateGroup && (
                 <div className="modal-overlay" onClick={() => setShowCreateGroup(false)}>
                     <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-                        <h3>Создать новую группу</h3>
+                        <h3>Create New Group</h3>
                         <form onSubmit={handleCreateGroup}>
                             <div className="form-group">
-                                <label>Название группы *</label>
+                                <label>Group Name *</label>
                                 <input
                                     type="text"
                                     value={newGroup.name}
@@ -445,7 +480,7 @@ const TeacherDashboard = () => {
                             </div>
 
                             <div className="form-group">
-                                <label>Описание</label>
+                                <label>Description</label>
                                 <textarea
                                     value={newGroup.description}
                                     onChange={(e) => setNewGroup({...newGroup, description: e.target.value})}
@@ -454,7 +489,7 @@ const TeacherDashboard = () => {
                             </div>
 
                             <div className="form-group">
-                                <label>Цвет группы</label>
+                                <label>Group Color</label>
                                 <input
                                     type="color"
                                     value={newGroup.color}
@@ -462,12 +497,23 @@ const TeacherDashboard = () => {
                                 />
                             </div>
 
+                            <div className="form-group">
+                                <label>Student Emails (comma or newline separated)</label>
+                                <textarea
+                                    rows="3"
+                                    value={newGroup.studentEmails || ''}
+                                    onChange={(e) => setNewGroup({ ...newGroup, studentEmails: e.target.value })}
+                                    placeholder="student1@example.com, student2@example.com"
+                                />
+                                <small>Will be added to group immediately after creation</small>
+                            </div>
+
                             <div className="modal-actions">
                                 <button type="button" onClick={() => setShowCreateGroup(false)} className="btn-cancel">
-                                    Отмена
+                                    Cancel
                                 </button>
                                 <button type="submit" className="btn-submit">
-                                    Создать
+                                    Create
                                 </button>
                             </div>
                         </form>
@@ -493,30 +539,30 @@ const TeacherDashboard = () => {
                 <div className="modal-overlay" onClick={() => setShowTaskStats(false)}>
                     <div className="stats-modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>📊 Статистика: {selectedTask.title}</h2>
+                            <h2>📊 Statistics: {selectedTask.title}</h2>
                             <button className="btn-close" onClick={() => setShowTaskStats(false)}>✕</button>
                         </div>
                         <div className="stats-content">
                             <div className="stats-grid-modal">
                                 <div className="stat-item">
                                     <div className="stat-value">{taskStats.totalSubmissions}</div>
-                                    <div className="stat-label">Всего отправок</div>
+                                    <div className="stat-label">Total Submissions</div>
                                 </div>
                                 <div className="stat-item">
                                     <div className="stat-value">{taskStats.uniqueStudentsAttempted}</div>
-                                    <div className="stat-label">Студентов пытались</div>
+                                    <div className="stat-label">Students Attempted</div>
                                 </div>
                                 <div className="stat-item">
                                     <div className="stat-value">{taskStats.solvedByStudents}</div>
-                                    <div className="stat-label">Решили задачу</div>
+                                    <div className="stat-label">Solved</div>
                                 </div>
                                 <div className="stat-item">
                                     <div className="stat-value">{taskStats.pendingSubmissions}</div>
-                                    <div className="stat-label">На проверке</div>
+                                    <div className="stat-label">Pending Review</div>
                                 </div>
                                 <div className="stat-item">
                                     <div className="stat-value">{taskStats.averagePoints}</div>
-                                    <div className="stat-label">Средний балл</div>
+                                    <div className="stat-label">Average Points</div>
                                 </div>
                             </div>
                         </div>
@@ -527,23 +573,23 @@ const TeacherDashboard = () => {
             <div className="stats-row">
                 <div className="stat-box">
                     <h3>{tasks.length}</h3>
-                    <p>Всего задач</p>
+                    <p>Total Tasks</p>
                 </div>
                 <div className="stat-box">
                     <h3>{submissions.length}</h3>
-                    <p>На проверке</p>
+                    <p>Pending Review</p>
                 </div>
                 <div className="stat-box">
                     <h3>{groups.length}</h3>
-                    <p>Групп</p>
+                    <p>Groups</p>
                 </div>
             </div>
 
             <div className="teacher-grid">
                 <div className="section">
-                    <h3>📚 Мои задачи</h3>
+                    <h3>📚 My Tasks</h3>
                     {tasks.length === 0 ? (
-                        <p className="empty">Задач пока нет</p>
+                        <p className="empty">No tasks yet</p>
                     ) : (
                         <div className="tasks-table">
                             {tasks.map(task => (
@@ -551,7 +597,7 @@ const TeacherDashboard = () => {
                                     <div className="task-row-content">
                                         <strong>{task.title}</strong>
                                         <span className="task-meta">
-                                            {'⭐'.repeat(task.difficulty)} • {task.points} баллов
+                                            {'⭐'.repeat(task.difficulty)} • {task.points} points
                                             {task.deadline && ` • ⏰ ${new Date(task.deadline).toLocaleDateString()}`}
                                         </span>
                                     </div>
@@ -559,7 +605,7 @@ const TeacherDashboard = () => {
                                         <button 
                                             className="btn-icon"
                                             onClick={() => handleViewTaskStats(task)}
-                                            title="Статистика"
+                                            title="Statistics"
                                         >
                                             📊
                                         </button>
@@ -569,14 +615,14 @@ const TeacherDashboard = () => {
                                                 setSelectedTask(task);
                                                 setShowEditTask(true);
                                             }}
-                                            title="Редактировать"
+                                            title="Edit"
                                         >
                                             ✏️
                                         </button>
                                         <button 
                                             className="btn-icon btn-danger"
                                             onClick={() => handleDeleteTask(task._id)}
-                                            title="Удалить"
+                                            title="Delete"
                                         >
                                             🗑️
                                         </button>
@@ -588,9 +634,9 @@ const TeacherDashboard = () => {
                 </div>
 
                 <div className="section">
-                    <h3>✍️ Решения на проверке</h3>
+                    <h3>✍️ Submissions Pending Review</h3>
                     {submissions.length === 0 ? (
-                        <p className="empty">Нет решений</p>
+                        <p className="empty">No submissions</p>
                     ) : (
                         <div className="submissions-list">
                             {submissions.map(sub => (
@@ -601,18 +647,68 @@ const TeacherDashboard = () => {
                                     </div>
                                     <pre className="code-preview">{sub.code.substring(0, 200)}...</pre>
                                     <div className="sub-actions">
-                                        <button className="btn-secondary" onClick={() => setReviewing(sub)}>👁 Просмотреть</button>
+                                        <button className="btn-secondary" onClick={() => setReviewing(sub)}>👁 View</button>
                                         <button 
                                             className="btn-approve"
-                                            onClick={() => handleReviewSubmission(sub._id, 'approved', sub.task.points, 'Отлично!')}
+                                            onClick={() => handleReviewSubmission(sub._id, 'approved', sub.task.points, 'Great!')}
                                         >
-                                            ✅ Принять
+                                            ✅ Approve
                                         </button>
                                         <button 
                                             className="btn-reject"
-                                            onClick={() => handleReviewSubmission(sub._id, 'rejected', 0, 'Нужны исправления')}
+                                            onClick={() => handleReviewSubmission(sub._id, 'rejected', 0, 'Needs revision')}
                                         >
-                                            ❌ Отклонить
+                                            ❌ Reject
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <div className="section">
+                    <h3>👥 Groups</h3>
+                    {groups.length === 0 ? (
+                        <p className="empty">No groups yet</p>
+                    ) : (
+                        <div className="groups-list">
+                            {groups.map(group => (
+                                <div key={group._id} className="group-card" style={{ borderLeft: `4px solid ${group.color}` }}>
+                                    <div className="group-header">
+                                        <strong>{group.name}</strong>
+                                        <span>{group.students?.length || 0} students</span>
+                                    </div>
+                                    {group.description && <p className="group-description">{group.description}</p>}
+                                    <div className="group-students">
+                                        <strong>Students:</strong>
+                                        {group.students && group.students.length > 0 ? (
+                                            <ul>
+                                                {group.students.map(student => (
+                                                    <li key={student._id || student}>
+                                                        {typeof student === 'object' ? student.name : 'Loading...'}
+                                                        <button 
+                                                            className="btn-icon btn-danger"
+                                                            onClick={() => handleRemoveStudentFromGroup(group._id, student._id || student)}
+                                                            title="Remove from group"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <p className="empty">No students in group</p>
+                                        )}
+                                    </div>
+                                    <div className="group-actions">
+                                        <button 
+                                            className="btn-secondary"
+                                            onClick={() => {
+                                                setSelectedGroup(group);
+                                                setShowAddStudent(true);
+                                            }}
+                                        >
+                                            ➕ Add Student
                                         </button>
                                     </div>
                                 </div>
@@ -634,6 +730,50 @@ const TeacherDashboard = () => {
                     onClose={() => setReviewing(null)}
                     onReview={handleReviewSubmission}
                 />
+            )}
+
+            {/* Модальное окно добавления студента в группу */}
+            {showAddStudent && selectedGroup && (
+                <div className="modal-overlay" onClick={() => {
+                    setShowAddStudent(false);
+                    setSelectedGroup(null);
+                    setStudentEmailToAdd('');
+                }}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                        <h3>Add Student to Group "{selectedGroup.name}"</h3>
+                        <form onSubmit={(e) => {
+                            e.preventDefault();
+                            handleAddStudentToGroup(selectedGroup._id, studentEmailToAdd);
+                        }}>
+                            <div className="form-group">
+                                <label>Student Email *</label>
+                                <input
+                                    type="email"
+                                    value={studentEmailToAdd}
+                                    onChange={(e) => setStudentEmailToAdd(e.target.value)}
+                                    placeholder="student@example.com"
+                                    required
+                                />
+                            </div>
+                            <div className="modal-actions">
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        setShowAddStudent(false);
+                                        setSelectedGroup(null);
+                                        setStudentEmailToAdd('');
+                                    }} 
+                                    className="btn-cancel"
+                                >
+                                    Cancel
+                                </button>
+                                <button type="submit" className="btn-submit">
+                                    Add
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             )}
         </div>
     );

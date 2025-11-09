@@ -6,7 +6,8 @@ import './TaskSubmission.css';
 const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
     const { token } = useContext(AuthContext);
     const [code, setCode] = useState('');
-    const [language, setLanguage] = useState(task.programmingLanguage || 'python');
+    // Language is fixed - use task's programming language, student cannot change it
+    const [language] = useState(task.programmingLanguage || 'python');
     const [timeSpent, setTimeSpent] = useState(0);
     const [loading, setLoading] = useState(false);
 
@@ -29,7 +30,7 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
         e.preventDefault();
 
         if (!code.trim()) {
-            alert('Пожалуйста, введите код решения!');
+            alert('Please enter your solution code!');
             return;
         }
 
@@ -53,14 +54,14 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
             const data = await response.json();
 
             if (data.success) {
-                alert('✅ Решение отправлено на проверку!');
+                alert('✅ Solution submitted for review!');
                 onSubmitSuccess();
                 onClose();
             } else {
-                alert('Ошибка: ' + data.message);
+                alert('Error: ' + data.message);
             }
         } catch (error) {
-            alert('Ошибка отправки решения');
+            alert('Error submitting solution');
         } finally {
             setLoading(false);
         }
@@ -74,7 +75,7 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
                         <h2>📝 {task.title}</h2>
                         <div className="task-meta">
                             <span>{'⭐'.repeat(task.difficulty)}</span>
-                            <span>💎 {task.points} баллов</span>
+                            <span>💎 {task.points} points</span>
                             <span>📝 {task.programmingLanguage}</span>
                             <span>⏱️ {formatTime(timeSpent)}</span>
                         </div>
@@ -84,20 +85,20 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
 
                 <div className="submission-content">
                     <div className="task-description">
-                        <h3>Описание задачи:</h3>
+                        <h3>Task Description:</h3>
                         <p>{task.description}</p>
                     </div>
 
                     {task.examples && task.examples.length > 0 && (
                         <div className="task-examples">
-                            <h3>Примеры:</h3>
+                            <h3>Examples:</h3>
                             {task.examples.map((example, index) => (
                                 <div key={index} className="example">
                                     <div>
-                                        <strong>Вход:</strong> {example.input}
+                                        <strong>Input:</strong> {example.input}
                                     </div>
                                     <div>
-                                        <strong>Выход:</strong> {example.output}
+                                        <strong>Output:</strong> {example.output}
                                     </div>
                                     {example.explanation && (
                                         <div className="explanation">
@@ -111,7 +112,7 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
 
                     {task.hints && task.hints.length > 0 && (
                         <div className="task-hints">
-                            <h3>💡 Подсказки:</h3>
+                            <h3>💡 Hints:</h3>
                             <ul>
                                 {task.hints.map((hint, index) => (
                                     <li key={index}>{hint}</li>
@@ -122,21 +123,30 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
 
                     <form onSubmit={handleSubmit} className="submission-form">
                         <div className="form-group">
-                            <label>Язык программирования:</label>
-                            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-                                <option value="python">Python</option>
-                                <option value="javascript">JavaScript</option>
-                                <option value="java">Java</option>
-                                <option value="cpp">C++</option>
-                            </select>
+                            <label>Programming Language:</label>
+                            <input 
+                                type="text" 
+                                value={language.charAt(0).toUpperCase() + language.slice(1)} 
+                                disabled 
+                                style={{ 
+                                    padding: '10px', 
+                                    border: '2px solid #e0e0e0', 
+                                    borderRadius: '6px',
+                                    backgroundColor: '#f5f5f5',
+                                    cursor: 'not-allowed'
+                                }}
+                            />
+                            <small style={{ color: '#666', marginTop: '5px', display: 'block' }}>
+                                Language is fixed for this task
+                            </small>
                         </div>
 
                         <div className="form-group">
-                            <label>Твой код:</label>
+                            <label>Your Code:</label>
                             <textarea
                                 value={code}
                                 onChange={(e) => setCode(e.target.value)}
-                                placeholder="Напиши свое решение здесь..."
+                                placeholder="Write your solution here..."
                                 rows="15"
                                 required
                             />
@@ -144,10 +154,10 @@ const TaskSubmission = ({ task, onClose, onSubmitSuccess }) => {
 
                         <div className="submission-actions">
                             <button type="button" onClick={onClose} className="btn-cancel">
-                                Отмена
+                                Cancel
                             </button>
                             <button type="submit" className="btn-submit" disabled={loading}>
-                                {loading ? 'Отправка...' : '✅ Отправить решение'}
+                                {loading ? 'Submitting...' : '✅ Submit Solution'}
                             </button>
                         </div>
                     </form>

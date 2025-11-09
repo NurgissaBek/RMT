@@ -57,14 +57,22 @@ const io = new Server(server, {
 loggerUtil.init(io);
 
 io.on('connection', (socket) => {
-  console.log(`WebSocket connected: ${socket.id}`);
+  loggerUtil.info(`WebSocket connected: ${socket.id}`, {
+    route: '/socket.io',
+    meta: { socketId: socket.id }
+  });
   socket.on('disconnect', () => {
-    console.log(`WebSocket disconnected: ${socket.id}`);
+    loggerUtil.info(`WebSocket disconnected: ${socket.id}`, {
+      route: '/socket.io',
+      meta: { socketId: socket.id }
+    });
   });
 });
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  loggerUtil.info(`Server listening on port ${PORT}`);
-  console.log(`Server listening on port ${PORT}`);
+  loggerUtil.info(`Server listening on port ${PORT}`, {
+    route: '/',
+    meta: { port: PORT }
+  });
 });

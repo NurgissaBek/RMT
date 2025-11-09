@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const { protect } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // @route   POST /api/auth/register
 // @desc    Регистрация нового пользователя
@@ -53,7 +54,11 @@ router.post('/register', async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Auth route error', {
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка сервера при регистрации',
@@ -115,7 +120,11 @@ router.post('/login', async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Auth route error', {
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка сервера при входе',
@@ -144,7 +153,11 @@ router.get('/me', protect, async (req, res) => {
             }
         });
     } catch (error) {
-        console.error(error);
+        logger.error('Auth route error', {
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении данных пользователя',

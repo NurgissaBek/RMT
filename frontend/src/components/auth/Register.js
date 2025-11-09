@@ -42,21 +42,21 @@ const Register = ({ switchToLogin }) => {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2>Регистрация</h2>
-                <p className="auth-subtitle">Создайте аккаунт для начала обучения</p>
+                <h2>Register</h2>
+                <p className="auth-subtitle">Create an account to start learning</p>
 
                 {error && <div className="error-message">{error}</div>}
 
                 <form onSubmit={handleSubmit}>
                     <div className="form-group">
-                        <label>Имя</label>
+                        <label>Name</label>
                         <input
                             type="text"
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
                             required
-                            placeholder="Ваше имя"
+                            placeholder="Your name"
                         />
                     </div>
 
@@ -73,35 +73,35 @@ const Register = ({ switchToLogin }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Пароль</label>
+                        <label>Password</label>
                         <input
                             type="password"
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
                             required
-                            placeholder="Минимум 6 символов"
+                            placeholder="Minimum 6 characters"
                             minLength="6"
                         />
                     </div>
 
                     <div className="form-group">
-                        <label>Роль</label>
+                        <label>Role</label>
                         <select name="role" value={formData.role} onChange={handleChange}>
-                            <option value="student">Студент</option>
-                            <option value="teacher">Учитель</option>
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
                         </select>
                     </div>
 
                     <button type="submit" className="btn-primary" disabled={loading}>
-                        {loading ? 'Регистрация...' : 'Зарегистрироваться'}
+                        {loading ? 'Registering...' : 'Register'}
                     </button>
                 </form>
 
                 <p className="auth-switch">
-                    Уже есть аккаунт?{' '}
+                    Already have an account?{' '}
                     <span onClick={switchToLogin} className="link">
-                        Войти
+                        Login
                     </span>
                 </p>
             </div>

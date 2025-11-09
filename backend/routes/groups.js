@@ -4,6 +4,7 @@ const router = express.Router();
 const Group = require('../models/Group');
 const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
+const logger = require('../utils/logger');
 
 // @route   GET /api/groups
 // @desc    Получить все группы учителя
@@ -21,7 +22,12 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении групп',
@@ -59,7 +65,12 @@ router.get('/:id', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении группы',
@@ -97,7 +108,12 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при создании группы',
@@ -140,7 +156,12 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при обновлении группы',
@@ -178,7 +199,12 @@ router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при удалении группы',
@@ -253,7 +279,12 @@ router.post('/:id/students', protect, authorize('teacher'), async (req, res) => 
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при добавлении студента',
@@ -307,7 +338,12 @@ router.delete('/:id/students/:studentId', protect, authorize('teacher'), async (
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при удалении студента',
@@ -330,7 +366,12 @@ router.get('/my/list', protect, authorize('student'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении групп',
@@ -369,7 +410,12 @@ router.get('/:id/invite', protect, authorize('teacher'), async (req, res) => {
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при получении invite-ссылки',
@@ -409,7 +455,12 @@ router.post('/:id/invite/regenerate', protect, authorize('teacher'), async (req,
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при создании новой ссылки',
@@ -449,7 +500,12 @@ router.put('/:id/invite/toggle', protect, authorize('teacher'), async (req, res)
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при изменении статуса ссылки',
@@ -520,7 +576,12 @@ router.post('/join/:inviteCode', protect, authorize('student'), async (req, res)
         });
 
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({
             success: false,
             message: 'Ошибка при присоединении к группе',
@@ -562,7 +623,12 @@ router.post('/join', protect, authorize('student'), async (req, res) => {
         const populated = await Group.findById(group._id).populate('students', 'name email points');
         res.status(200).json({ success: true, group: populated });
     } catch (error) {
-        console.error(error);
+        logger.error('Groups route error', {
+            user: req.user ? req.user.id : null,
+            route: req.originalUrl,
+            ip: req.ip,
+            meta: { error: error.message, stack: error.stack }
+        });
         res.status(500).json({ success: false, message: 'Error joining group', error: error.message });
     }
 });

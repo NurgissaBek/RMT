@@ -26,7 +26,7 @@ const Login = ({ switchToRegister }) => {
     return (
         <div className="auth-container">
             <div className="auth-card">
-                <h2>Вход в систему</h2>
+                <h2>Login</h2>
                 <p className="auth-subtitle">Gamified Programming Platform</p>
 
                 {error && <div className="error-message">{error}</div>}
@@ -44,7 +44,7 @@ const Login = ({ switchToRegister }) => {
                     </div>
 
                     <div className="form-group">
-                        <label>Пароль</label>
+                        <label>Password</label>
                         <input
                             type="password"
                             value={password}
@@ -56,14 +56,14 @@ const Login = ({ switchToRegister }) => {
                     </div>
 
                     <button type="submit" className="btn-primary" disabled={loading}>
-                        {loading ? 'Вход...' : 'Войти'}
+                        {loading ? 'Logging in...' : 'Login'}
                     </button>
                 </form>
 
                 <p className="auth-switch">
-                    Нет аккаунта?{' '}
+                    Don't have an account?{' '}
                     <span onClick={switchToRegister} className="link">
-                        Зарегистрироваться
+                        Register
                     </span>
                 </p>
             </div>

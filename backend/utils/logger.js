@@ -4,17 +4,44 @@ const LogModel = require('../models/Log');
 
 let ioInstance = null;
 
+// Формат для читаемого вывода в консоль
+const consoleFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
+  const metaStr = Object.keys(meta).length ? JSON.stringify(meta, null, 2) : '';
+  return `${timestamp} [${level.toUpperCase()}]: ${message} ${metaStr}`;
+});
+
 const logger = winston.createLogger({
-  level: 'info',
+  level: process.env.LOG_LEVEL || 'info',
   format: winston.format.combine(
-      winston.format.timestamp(),
+      winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
       winston.format.errors({ stack: true }),
       winston.format.json()
   ),
   transports: [
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
-    new winston.transports.Console({ format: winston.format.simple() })
+    new winston.transports.File({ 
+      filename: 'logs/error.log', 
+      level: 'error',
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      )
+    }),
+    new winston.transports.File({ 
+      filename: 'logs/combined.log',
+      format: winston.format.combine(
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
+      )
+    }),
+    new winston.transports.Console({ 
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+        consoleFormat
+      )
+    })
   ],
   exitOnError: false
 });
@@ -27,8 +54,17 @@ function init(io) {
 // Универсальная запись (в консоль/файлы через winston) и в Mongo
 async function log(level, message, { user=null, route=null, ip=null, meta={} } = {}) {
   try {
-    // 1) локальные логи
-    logger.log({ level, message, meta });
+    // Формируем читаемое сообщение для консоли
+    const logMessage = route 
+      ? `${message} | Route: ${route}${user ? ` | User: ${user}` : ''}${ip ? ` | IP: ${ip}` : ''}`
+      : message;
+    
+    // 1) локальные логи через winston
+    logger.log({ 
+      level, 
+      message: logMessage, 
+      meta: { ...meta, user, route, ip } 
+    });
 
     // 2) persist to Mongo
     const doc = new LogModel({
@@ -45,7 +81,7 @@ async function log(level, message, { user=null, route=null, ip=null, meta={} } =
     }
   } catch (err) {
     // чтобы не падать, логгируем в консоль
-    console.error('Logger error:', err);
+    logger.winston.error('Logger error:', err);
   }
 }
 

@@ -29,6 +29,65 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script>
+      // Блокировка Ctrl+C и других комбинаций
+      document.addEventListener('keydown', function(e) {
+        // Блокируем Ctrl+C (копирование)
+        if (e.ctrlKey && e.key === 'c') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем Ctrl+A (выделение всего)
+        if (e.ctrlKey && e.key === 'a') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем Ctrl+S (сохранение)
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем F12 (DevTools)
+        if (e.key === 'F12') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем Ctrl+Shift+I (DevTools)
+        if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем Ctrl+Shift+J (Console)
+        if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+        // Блокируем Ctrl+U (просмотр исходного кода)
+        if (e.ctrlKey && e.key === 'u') {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, true);
+
+      // Блокируем контекстное меню (правый клик)
+      document.addEventListener('contextmenu', function(e) {
+        e.preventDefault();
+        return false;
+      }, true);
+
+      // Блокируем выделение текста
+      document.addEventListener('selectstart', function(e) {
+        e.preventDefault();
+        return false;
+      }, true);
+    </script>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
