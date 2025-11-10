@@ -11,6 +11,8 @@ const QuizSchema = new mongoose.Schema({
   }],
   assignedGroups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }],
   isPublished: { type: Boolean, default: true },
+  // When true, students can view their answers with correct/incorrect breakdown
+  solutionsPublished: { type: Boolean, default: false },
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   createdAt: { type: Date, default: Date.now }
 });

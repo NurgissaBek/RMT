@@ -8,10 +8,19 @@ const ExcelJS = require('exceljs');
 const { protect, authorize } = require('../middleware/auth'); // используем вашу аутентификацию
 const logger = require('../utils/logger');
 
-// GET /api/logs?level=info&user=...&limit=100
+// GET /api/logs
+// Query params:
+// - level: info|warn|error|debug
+// - user: userId
+// - route: route string
+// - limit, skip
+// - category: task|lecture|quiz
+// - action: opened|submitted|reviewed
+// - resourceId: id of task/lecture/quiz
+// - since, until: ISO dates
 router.get('/', protect, authorize('teacher'), async (req, res) => {
   try {
-    const { level, user, route, limit = 200, skip = 0 } = req.query;
+    const { level, user, route, limit = 200, skip = 0, category, action, resourceId, since, until } = req.query;
     const query = {};
     if (level) query.level = level;
     
@@ -58,6 +67,42 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
       }
     }
 
+    // Category filter by meta key
+    if (category === 'task') query['meta.taskId'] = { $exists: true };
+    if (category === 'lecture') query['meta.lectureId'] = { $exists: true };
+    if (category === 'quiz') query['meta.quizId'] = { $exists: true };
+
+    // Resource filter
+    if (resourceId) {
+      if (category === 'task') query['meta.taskId'] = resourceId;
+      else if (category === 'lecture') query['meta.lectureId'] = resourceId;
+      else if (category === 'quiz') query['meta.quizId'] = resourceId;
+      else {
+        // If no category, try on all known fields
+        query.$or = [
+          { 'meta.taskId': resourceId },
+          { 'meta.lectureId': resourceId },
+          { 'meta.quizId': resourceId }
+        ];
+      }
+    }
+
+    // Action filter via message regex
+    if (action === 'opened') {
+      query.message = { ...(query.message || {}), $regex: /opened/i };
+    } else if (action === 'submitted') {
+      query.message = { ...(query.message || {}), $regex: /submitted/i };
+    } else if (action === 'reviewed') {
+      query.message = { ...(query.message || {}), $regex: /review/i };
+    }
+
+    // Time range
+    if (since || until) {
+      query.createdAt = {};
+      if (since) query.createdAt.$gte = new Date(since);
+      if (until) query.createdAt.$lte = new Date(until);
+    }
+
     const logs = await Log.find(query)
       .sort({ createdAt: -1 })
       .limit(parseInt(limit, 10))
@@ -65,6 +110,45 @@ router.get('/', protect, authorize('teacher'), async (req, res) => {
       .populate('user', 'name email role');
     
     res.json({ success: true, count: logs.length, logs });
+  } catch (err) {
+    logger.error('Logs route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/logs/views?category=task|lecture|quiz&resourceId=...
+// Returns unique viewers for the resource (by logs of "opened ...")
+router.get('/views', protect, authorize('teacher'), async (req, res) => {
+  try {
+    const { category, resourceId } = req.query;
+    if (!category || !resourceId) {
+      return res.status(400).json({ success: false, error: 'category and resourceId are required' });
+    }
+    const query = {
+      message: { $regex: /opened/i }
+    };
+    if (category === 'task') query['meta.taskId'] = resourceId;
+    else if (category === 'lecture') query['meta.lectureId'] = resourceId;
+    else if (category === 'quiz') query['meta.quizId'] = resourceId;
+    else return res.status(400).json({ success: false, error: 'Invalid category' });
+
+    const logs = await Log.find(query).populate('user', 'name email');
+    const map = new Map();
+    logs.forEach(l => {
+      const uid = l.user?._id?.toString() || l.meta?.user || 'unknown';
+      const existing = map.get(uid);
+      const dt = l.createdAt ? new Date(l.createdAt) : new Date(0);
+      if (!existing || dt > existing.lastSeen) {
+        map.set(uid, { userId: uid, name: l.user?.name || l.meta?.studentName || 'Unknown', email: l.user?.email || '', lastSeen: dt });
+      }
+    });
+    const viewers = Array.from(map.values()).sort((a, b) => b.lastSeen - a.lastSeen);
+    res.json({ success: true, count: viewers.length, viewers });
   } catch (err) {
     logger.error('Logs route error', {
       user: req.user ? req.user.id : null,

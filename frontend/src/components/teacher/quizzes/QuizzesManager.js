@@ -166,6 +166,24 @@ const QuizzesManager = () => {
     }
   };
 
+  const toggleSolutions = async (quiz, nextVal) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/quizzes/${quiz._id}/solutions`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ solutionsPublished: nextVal })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setQuizzes(prev => prev.map(q => (q._id === quiz._id ? data.quiz : q)));
+      } else {
+        alert(data.message || 'Failed to update solutions visibility');
+      }
+    } catch (e) {
+      alert('Error updating solutions visibility');
+    }
+  };
+
   return (
     <div className="section">
       <div className="quizzes-header">
@@ -238,6 +256,14 @@ const QuizzesManager = () => {
               <div className="task-row-actions">
                 <button className="btn-secondary" onClick={() => openSubmissions(q)}>
                   📥 View submissions
+                </button>
+                <button
+                  className="btn-secondary"
+                  onClick={() => toggleSolutions(q, !q.solutionsPublished)}
+                  title="Publish/unpublish solutions for students"
+                  style={{ marginLeft: '10px' }}
+                >
+                  {q.solutionsPublished ? '?? Unpublish solutions' : '?? Publish solutions'}
                 </button>
                 <button 
                   className="btn-icon btn-danger"

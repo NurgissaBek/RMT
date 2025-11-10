@@ -9,6 +9,12 @@ const LiveLogs = () => {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [category, setCategory] = useState('all');
+  const [action, setAction] = useState('all');
+  const [resourceId, setResourceId] = useState('');
+  const [sinceHours, setSinceHours] = useState('');
+  const [viewers, setViewers] = useState([]);
+  const [loadingViews, setLoadingViews] = useState(false);
 
   useEffect(() => {
     if (!token) return;
@@ -18,7 +24,15 @@ const LiveLogs = () => {
       try {
         setLoading(true);
         setError(null);
-        const res = await fetch(`${API_BASE}/api/logs?limit=200`, {
+        const params = new URLSearchParams({ limit: '200' });
+        if (category !== 'all') params.set('category', category);
+        if (action !== 'all') params.set('action', action);
+        if (resourceId.trim()) params.set('resourceId', resourceId.trim());
+        if (sinceHours && Number(sinceHours) > 0) {
+          const since = new Date(Date.now() - Number(sinceHours) * 3600 * 1000).toISOString();
+          params.set('since', since);
+        }
+        const res = await fetch(`${API_BASE}/api/logs?${params.toString()}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) {
@@ -73,7 +87,35 @@ const LiveLogs = () => {
       clearInterval(refreshInterval);
       socket.disconnect();
     };
-  }, [token]);
+  }, [token, category, action, resourceId, sinceHours]);
+
+  // Load viewers for specific resource when provided
+  useEffect(() => {
+    let cancelled = false;
+    const loadViews = async () => {
+      if (!token) return;
+      if (category === 'all' || !resourceId.trim()) {
+        setViewers([]);
+        return;
+      }
+      try {
+        setLoadingViews(true);
+        const res = await fetch(`${API_BASE}/api/logs/views?category=${encodeURIComponent(category)}&resourceId=${encodeURIComponent(resourceId.trim())}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!cancelled) {
+          setViewers(data.success ? (data.viewers || []) : []);
+        }
+      } catch (e) {
+        if (!cancelled) setViewers([]);
+      } finally {
+        if (!cancelled) setLoadingViews(false);
+      }
+    };
+    loadViews();
+    return () => { cancelled = true; };
+  }, [token, category, resourceId]);
 
   const getLogIcon = (message) => {
     if (message?.toLowerCase().includes('opened task')) return '📖';
@@ -121,6 +163,37 @@ const LiveLogs = () => {
   return (
     <div className="live-logs">
       <h3>Student Activity Logs</h3>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+        <select value={category} onChange={(e) => setCategory(e.target.value)}>
+          <option value="all">All</option>
+          <option value="task">Tasks</option>
+          <option value="lecture">Lectures</option>
+          <option value="quiz">Quizzes</option>
+        </select>
+        <select value={action} onChange={(e) => setAction(e.target.value)}>
+          <option value="all">All actions</option>
+          <option value="opened">Opened</option>
+          <option value="submitted">Submitted</option>
+          <option value="reviewed">Reviewed</option>
+        </select>
+        <input
+          placeholder={category === 'all' ? 'Resource ID (optional)' : `${category} id`}
+          value={resourceId}
+          onChange={(e) => setResourceId(e.target.value)}
+          style={{ minWidth: 220 }}
+        />
+        <input
+          type="number"
+          min="0"
+          placeholder="Since (hours)"
+          value={sinceHours}
+          onChange={(e) => setSinceHours(e.target.value)}
+          style={{ width: 120 }}
+        />
+        <button className="btn-secondary" onClick={() => {/* filters auto-apply */}}>
+          Apply
+        </button>
+      </div>
       {error && (
         <div style={{ 
           padding: '10px', 
@@ -132,6 +205,22 @@ const LiveLogs = () => {
           Error: {error}
         </div>
       )}
+      {category !== 'all' && resourceId.trim() && (
+        <div style={{ marginBottom: 10, background: '#fff', padding: 10, borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.07)' }}>
+          <strong>Views for this {category}:</strong> {loadingViews ? 'Loading…' : viewers.length}
+          {viewers.length > 0 && (
+            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              {viewers.slice(0, 12).map(v => (
+                <span key={v.userId} style={{ background: '#eef2ff', color: '#3730a3', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>
+                  {v.name}
+                </span>
+              ))}
+              {viewers.length > 12 && <span style={{ fontSize: 12, color: '#666' }}>+{viewers.length - 12} more</span>}
+            </div>
+          )}
+        </div>
+      )}
+
       <div style={{ maxHeight: 500, overflowY: 'auto', background:'#fff', padding:15, borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
         {loading && logs.length === 0 ? (
           <p style={{ color: '#94a3b8', textAlign: 'center', padding: '32px 0' }}>

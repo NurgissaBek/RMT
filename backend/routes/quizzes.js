@@ -7,6 +7,99 @@ const { protect, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const { shouldLogVisit } = require('../utils/visitTracker');
 
+// Student: list own quiz submissions
+router.get('/my-submissions', protect, authorize('student'), async (req, res) => {
+  try {
+    const submissions = await QuizSubmission.find({ student: req.user.id })
+      .populate('quiz', 'title description createdAt')
+      .sort('-createdAt');
+
+    res.json({ success: true, submissions });
+  } catch (err) {
+    logger.error('Quizzes route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Teacher: publish/unpublish solutions for a quiz
+router.put('/:id/solutions', protect, authorize('teacher'), async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+    if (quiz.createdBy.toString() !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'Forbidden' });
+    }
+
+    const val = typeof req.body.solutionsPublished === 'boolean'
+      ? req.body.solutionsPublished
+      : (!!req.body.publish);
+    quiz.solutionsPublished = val;
+    await quiz.save();
+    res.json({ success: true, quiz });
+  } catch (err) {
+    logger.error('Quizzes route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Student: view own submission with correct answers when published
+router.get('/:id/my-submission', protect, authorize('student'), async (req, res) => {
+  try {
+    const quiz = await Quiz.findById(req.params.id);
+    if (!quiz) return res.status(404).json({ success: false, message: 'Quiz not found' });
+
+    const submission = await QuizSubmission.findOne({ quiz: quiz._id, student: req.user.id });
+    if (!submission) return res.status(404).json({ success: false, message: 'Submission not found' });
+
+    if (!quiz.solutionsPublished) {
+      return res.status(403).json({ success: false, message: 'Solutions are not available yet' });
+    }
+
+    const questions = quiz.questions.map(q => ({
+      text: q.text,
+      choices: q.choices,
+      correctIndex: q.correctIndex,
+      points: q.points || 1
+    }));
+    const answers = submission.answers || [];
+    const correctness = questions.map((q, i) => (answers[i] === q.correctIndex));
+    const maxScore = questions.reduce((s, q) => s + (q.points || 1), 0);
+    const score = correctness.reduce((s, ok, i) => s + (ok ? (questions[i].points || 1) : 0), 0);
+    const percentage = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
+
+    res.json({
+      success: true,
+      quizTitle: quiz.title,
+      questions,
+      answers,
+      correctness,
+      score,
+      maxScore,
+      percentage,
+      feedback: submission.feedback || '',
+      reviewedAt: submission.reviewedAt
+    });
+  } catch (err) {
+    logger.error('Quizzes route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // List quizzes
 router.get('/', protect, async (req, res) => {
   try {

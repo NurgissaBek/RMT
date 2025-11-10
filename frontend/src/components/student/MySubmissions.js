@@ -10,6 +10,8 @@ const MySubmissions = () => {
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('all'); // all, approved, rejected, pending, needs_revision
     const [editing, setEditing] = useState(null); // submission being edited
+    const [quizSubmissions, setQuizSubmissions] = useState([]);
+    const [quizDetails, setQuizDetails] = useState(null); // detailed view payload
 
     useEffect(() => {
         fetchSubmissions();
@@ -23,6 +25,15 @@ const MySubmissions = () => {
             const data = await response.json();
             if (data.success) {
                 setSubmissions(data.submissions);
+            }
+
+            // Load quiz submissions
+            const qres = await fetch(`${API_BASE}/api/quizzes/my-submissions`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const qdata = await qres.json();
+            if (qdata.success) {
+                setQuizSubmissions(qdata.submissions || []);
             }
         } catch (error) {
             console.error('Error loading:', error);
@@ -245,6 +256,118 @@ const MySubmissions = () => {
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Quiz Results */}
+            <div style={{ marginTop: 30 }}>
+                <h2>?? Quiz Results ({quizSubmissions.length})</h2>
+                {quizSubmissions.length === 0 ? (
+                    <p className="empty-message">No quizzes submitted yet</p>
+                ) : (
+                    <div className="submissions-grid">
+                        {quizSubmissions.map(qs => (
+                            <div key={qs._id} className="submission-card">
+                                <div className="submission-card-header">
+                                    <h3>{qs.quiz?.title || 'Quiz'}</h3>
+                                    <span className={`status-badge ${qs.status === 'reviewed' ? 'status-approved' : 'status-pending'}`}>
+                                        {qs.status === 'reviewed' ? '✅ Reviewed' : '⏳ Submitted'}
+                                    </span>
+                                </div>
+                                <div className="submission-info">
+                                    <div className="info-item">
+                                        <span className="label">Score:</span>
+                                        <span className="value">{qs.score}/{qs.maxScore} ({qs.percentage}%)</span>
+                                    </div>
+                                    <div className="info-item">
+                                        <span className="label">Submitted:</span>
+                                        <span className="value">{new Date(qs.createdAt).toLocaleDateString()}</span>
+                                    </div>
+                                    {qs.reviewedAt && (
+                                        <div className="info-item">
+                                            <span className="label">Reviewed:</span>
+                                            <span className="value">{new Date(qs.reviewedAt).toLocaleDateString()}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                {qs.feedback && (
+                                    <div className="feedback-section">
+                                        <strong>Teacher Feedback:</strong>
+                                        <p>{qs.feedback}</p>
+                                    </div>
+                                )}
+                                <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                                    <button
+                                        className="btn-secondary"
+                                        onClick={async () => {
+                                            try {
+                                                const res = await fetch(`${API_BASE}/api/quizzes/${qs.quiz?._id || ''}/my-submission`, {
+                                                    headers: { 'Authorization': `Bearer ${token}` }
+                                                });
+                                                const data = await res.json();
+                                                if (data.success) {
+                                                    setQuizDetails(data);
+                                                } else {
+                                                    alert(data.message || 'Details not available yet');
+                                                }
+                                            } catch (e) {
+                                                alert('Error loading details');
+                                            }
+                                        }}
+                                    >
+                                        View Details
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {quizDetails && (
+                <div className="modal-overlay" onClick={() => setQuizDetails(null)}>
+                    <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 800 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                            <h3>📝 {quizDetails.quizTitle}</h3>
+                            <button className="btn-close" onClick={() => setQuizDetails(null)}>✕</button>
+                        </div>
+                        <div style={{ marginBottom: 12 }}>
+                            <strong>Score:</strong> {quizDetails.score}/{quizDetails.maxScore} ({quizDetails.percentage}%)
+                        </div>
+                        {quizDetails.feedback && (
+                            <div className="feedback-section">
+                                <strong>Teacher Feedback:</strong>
+                                <p>{quizDetails.feedback}</p>
+                            </div>
+                        )}
+                        <div>
+                            {quizDetails.questions.map((q, idx) => {
+                                const selected = quizDetails.answers[idx];
+                                return (
+                                    <div key={idx} style={{ border: '1px solid #e0e0e0', borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <h4 style={{ margin: 0 }}>{idx + 1}. {q.text} ({q.points || 1} pt)</h4>
+                                            <span style={{ fontWeight: 600, color: quizDetails.correctness[idx] ? '#2e7d32' : '#d32f2f' }}>
+                                                {quizDetails.correctness[idx] ? 'Correct' : 'Incorrect'}
+                                            </span>
+                                        </div>
+                                        <div style={{ marginTop: 8 }}>
+                                            {q.choices.map((choice, cIdx) => (
+                                                <div key={cIdx} style={{ padding: '6px 8px', borderRadius: 6, marginBottom: 6, background:
+                                                    cIdx === q.correctIndex ? '#e8f5e9' : (cIdx === selected ? '#ffebee' : 'transparent'),
+                                                    border: '1px solid #e0e0e0' }}>
+                                                    <span style={{ marginRight: 8 }}>
+                                                        {cIdx === q.correctIndex ? '✅' : (cIdx === selected ? '❌' : '•')}
+                                                    </span>
+                                                    {choice}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
                 </div>
             )}
 
