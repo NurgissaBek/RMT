@@ -17,6 +17,11 @@ app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN || '*', credentials: true }));
 app.use(requestLogger);
 
+// Static files for uploaded lecture attachments
+const path = require('path');
+const uploadsDir = path.join(__dirname, 'uploads');
+app.use('/uploads', express.static(uploadsDir));
+
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/tasks', require('./routes/tasks'));
@@ -26,6 +31,7 @@ app.use('/api/groups', require('./routes/groups'));
 app.use('/api/logs', require('./routes/logs'));
 app.use('/api/lectures', require('./routes/lectures'));
 app.use('/api/quizzes', require('./routes/quizzes'));
+app.use('/api/users', require('./routes/users'));
 
 // Root
 app.get('/', (req, res) => {

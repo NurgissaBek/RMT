@@ -68,6 +68,32 @@ const TaskSchema = new mongoose.Schema({
         }
     }],
     
+    // Контестерные группы тестов (опционально)
+    testGroups: [{
+        name: { type: String, default: 'default' },
+        weight: { type: Number, default: 100 },
+        continueOnFailure: { type: Boolean, default: true },
+        tests: [{
+            input: { type: String, required: true },
+            expectedOutput: { type: String, required: true },
+            isHidden: { type: Boolean, default: false },
+            points: { type: Number, default: 1 }
+        }]
+    }],
+
+    // Чекер сравнения вывода
+    checker: {
+        type: {
+            type: String,
+            enum: ['diff', 'ignore_whitespace', 'ignore_case_whitespace'],
+            default: 'diff'
+        },
+        options: {
+            ignoreWhitespace: { type: Boolean, default: false },
+            ignoreCase: { type: Boolean, default: false }
+        }
+    },
+
     // НОВОЕ: Автопроверка включена?
     autoCheckEnabled: {
         type: Boolean,
@@ -79,12 +105,18 @@ const TaskSchema = new mongoose.Schema({
         type: Number,
         default: 5
     },
+
+    // Миллисекундный лимит (приоритетнее, если задан)
+    timeLimitMs: { type: Number, default: 0 },
     
     // НОВОЕ: Лимит памяти (MB)
     memoryLimit: {
         type: Number,
         default: 128
     },
+
+    // Мегабайтовый лимит (приоритетнее, если задан)
+    memoryLimitMb: { type: Number, default: 0 },
     
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,

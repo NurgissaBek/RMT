@@ -53,41 +53,73 @@ router.post('/', protect, authorize('student'), async (req, res) => {
             attemptNumber: previousSubmissions + 1
         });
 
-        // Auto-check via Judge0 if enabled and test cases present
+        // Auto-check via Judge0
         let autoCheckSummary = null;
-        if (task.autoCheckEnabled && Array.isArray(task.testCases) && task.testCases.length > 0) {
+        if (task.autoCheckEnabled) {
             try {
-                const result = await judge0.checkSubmission(
-                    code,
-                    language,
-                    task.testCases,
-                    task.timeLimit,
-                    task.memoryLimit
-                );
+                const timeLimitMs = (typeof task.timeLimitMs === 'number' && task.timeLimitMs > 0)
+                    ? task.timeLimitMs
+                    : ((typeof task.timeLimit === 'number' ? task.timeLimit : 5) * 1000);
+                const memoryLimitMb = (typeof task.memoryLimitMb === 'number' && task.memoryLimitMb > 0)
+                    ? task.memoryLimitMb
+                    : (typeof task.memoryLimit === 'number' ? task.memoryLimit : 128);
 
-                submission.autoCheck = true;
-                submission.testResults = result.testResults;
-                submission.autoScore = result.totalScore;
-                submission.maxScore = result.maxScore;
-                submission.percentage = result.percentage;
-                submission.pointsAwarded = result.totalScore;
-                submission.status = result.allPassed ? 'approved' : 'needs_revision';
-                await submission.save();
+                let result = null;
+                const hasGroups = Array.isArray(task.testGroups) && task.testGroups.length > 0;
+                const hasCases = Array.isArray(task.testCases) && task.testCases.length > 0;
 
-                if (result.allPassed && result.totalScore > 0) {
-                    const student = await User.findById(req.user.id);
-                    if (student) {
-                        student.points += result.totalScore;
-                        await student.save();
-                    }
+                if (hasGroups) {
+                    result = await judge0.checkSubmissionGrouped(
+                        code,
+                        language,
+                        task.testGroups,
+                        timeLimitMs,
+                        memoryLimitMb,
+                        task.checker
+                    );
+                } else if (hasCases) {
+                    result = await judge0.checkSubmission(
+                        code,
+                        language,
+                        task.testCases,
+                        timeLimitMs / 1000,
+                        memoryLimitMb * 1000
+                    );
                 }
 
-                autoCheckSummary = {
-                    autoScore: result.totalScore,
-                    maxScore: result.maxScore,
-                    percentage: result.percentage,
-                    allPassed: result.allPassed
-                };
+                if (result) {
+                    submission.autoCheck = true;
+                    submission.testResults = result.testResults;
+                    submission.autoScore = result.totalScore;
+                    submission.maxScore = result.maxScore;
+                    submission.percentage = result.percentage;
+                    submission.pointsAwarded = result.totalScore;
+                    submission.status = result.allPassed ? 'approved' : 'needs_revision';
+                    await submission.save();
+
+                    if (result.allPassed && result.totalScore > 0) {
+                        const student = await User.findById(req.user.id);
+                        if (student) {
+                            // Баллы
+                            student.points += result.totalScore;
+                            // Опыт = баллы * 5
+                            await student.addExperience(result.totalScore * 5);
+                            // Стрик
+                            const streakInfo = await student.updateStreak();
+                            if (streakInfo?.bonusPoints) {
+                                student.points += streakInfo.bonusPoints;
+                            }
+                            await student.save();
+                        }
+                    }
+
+                    autoCheckSummary = {
+                        autoScore: result.totalScore,
+                        maxScore: result.maxScore,
+                        percentage: result.percentage,
+                        allPassed: result.allPassed
+                    };
+                }
             } catch (e) {
                 logger.error('Auto-check failed', {
                     user: req.user ? req.user.id : null,
@@ -302,11 +334,11 @@ router.put('/:id', protect, authorize('student'), async (req, res) => {
 });
 
 // @route   DELETE /api/submissions/:id
-// @desc    НОВОЕ: Студент удаляет свое решение (только если pending)
+// @desc    Студент удаляет свое решение. Если было approved — списываются начисленные баллы
 // @access  Private (только студенты)
 router.delete('/:id', protect, authorize('student'), async (req, res) => {
     try {
-        const submission = await Submission.findById(req.params.id);
+        const submission = await Submission.findById(req.params.id).populate('student').populate('task');
 
         if (!submission) {
             return res.status(404).json({
@@ -315,18 +347,30 @@ router.delete('/:id', protect, authorize('student'), async (req, res) => {
             });
         }
 
-        if (submission.student.toString() !== req.user.id) {
+        if ((submission.student?._id?.toString?.() || submission.student?.toString?.() || '') !== req.user.id) {
             return res.status(403).json({
                 success: false,
                 message: 'Вы не можете удалить чужое решение'
             });
         }
 
-        if (submission.status !== 'pending') {
-            return res.status(400).json({
-                success: false,
-                message: 'Можно удалять только решения, ожидающие проверки'
-            });
+        // Если решение было засчитано, уменьшаем баллы студента
+        if (submission.status === 'approved' && submission.pointsAwarded && submission.pointsAwarded > 0) {
+            try {
+                const student = await User.findById(req.user.id);
+                if (student) {
+                    student.points = Math.max(0, (student.points || 0) - submission.pointsAwarded);
+                    await student.save();
+                }
+            } catch (err) {
+                // Продолжаем, но логируем
+                logger.error('Points rollback on delete failed', {
+                    user: req.user ? req.user.id : null,
+                    route: req.originalUrl,
+                    ip: req.ip,
+                    meta: { error: err.message, submissionId: submission._id.toString() }
+                });
+            }
         }
 
         await submission.deleteOne();
@@ -397,6 +441,16 @@ router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
                 ? Number(pointsAwarded)
                 : submission.task.points;
             updatedPoints = Math.max(0, targetPoints);
+
+            // Дополнительно: опыт и стрики
+            try {
+                const xpToAdd = updatedPoints * 5;
+                await student.addExperience(xpToAdd);
+                const streakInfo = await student.updateStreak();
+                if (streakInfo?.bonusPoints) {
+                    student.points = Math.max(0, (student.points || 0) + streakInfo.bonusPoints);
+                }
+            } catch (_) {}
         } else {
             updatedPoints = 0;
         }

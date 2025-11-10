@@ -31,7 +31,12 @@ const TeacherDashboard = () => {
         programmingLanguage: 'python',
         deadline: '',
         assignedGroups: [],
-        autoCheckEnabled: false
+        autoCheckEnabled: false,
+        timeLimit: 2,
+        memoryLimit: 128,
+        checker: { type: 'diff' },
+        testCases: [],
+        testGroups: []
     });
     const [newGroup, setNewGroup] = useState({
         name: '',
@@ -101,7 +106,13 @@ const TeacherDashboard = () => {
                     points: 10,
                     programmingLanguage: 'python',
                     deadline: '',
-                    assignedGroups: []
+                    assignedGroups: [],
+                    autoCheckEnabled: false,
+                    timeLimit: 2,
+                    memoryLimit: 128,
+                    checker: { type: 'diff' },
+                    testCases: [],
+                    testGroups: []
                 });
                 fetchData();
             } else {
@@ -398,6 +409,249 @@ const TeacherDashboard = () => {
                             </label>
                             <small>If disabled, only manual review by teacher</small>
                         </div>
+
+                        {newTask.autoCheckEnabled && (
+                            <div className="form-group" style={{ border: '1px solid #eee', padding: 12, borderRadius: 8 }}>
+                                <div className="form-row">
+                                    <div className="form-group">
+                                        <label>Time Limit (sec)</label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            value={newTask.timeLimit || 2}
+                                            onChange={(e)=>setNewTask({ ...newTask, timeLimit: parseInt(e.target.value || '0') })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Memory Limit (MB)</label>
+                                        <input
+                                            type="number"
+                                            min="16"
+                                            value={newTask.memoryLimit || 128}
+                                            onChange={(e)=>setNewTask({ ...newTask, memoryLimit: parseInt(e.target.value || '0') })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Checker</label>
+                                        <select
+                                            value={newTask.checker?.type || 'diff'}
+                                            onChange={(e)=>setNewTask({ ...newTask, checker: { ...(newTask.checker||{}), type: e.target.value } })}
+                                        >
+                                            <option value="diff">Strict (diff)</option>
+                                            <option value="ignore_whitespace">Ignore whitespace</option>
+                                            <option value="ignore_case_whitespace">Ignore case + whitespace</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <hr />
+
+                                <div style={{ marginBottom: 8, fontWeight: 600 }}>Test cases (simple)</div>
+                                {(newTask.testCases || []).length === 0 && (
+                                    <small>No test cases yet</small>
+                                )}
+                                {(newTask.testCases || []).map((tc, idx) => (
+                                    <div key={idx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 120px 40px', gap: 8, marginBottom: 8 }}>
+                                        <textarea
+                                            placeholder="stdin"
+                                            rows={2}
+                                            value={tc.input || ''}
+                                            onChange={(e)=>{
+                                                const tcs = [...(newTask.testCases||[])];
+                                                tcs[idx] = { ...tcs[idx], input: e.target.value };
+                                                setNewTask({ ...newTask, testCases: tcs, testGroups: [] });
+                                            }}
+                                        />
+                                        <textarea
+                                            placeholder="expected stdout"
+                                            rows={2}
+                                            value={tc.expectedOutput || ''}
+                                            onChange={(e)=>{
+                                                const tcs = [...(newTask.testCases||[])];
+                                                tcs[idx] = { ...tcs[idx], expectedOutput: e.target.value };
+                                                setNewTask({ ...newTask, testCases: tcs, testGroups: [] });
+                                            }}
+                                        />
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            value={tc.points ?? 10}
+                                            onChange={(e)=>{
+                                                const tcs = [...(newTask.testCases||[])];
+                                                tcs[idx] = { ...tcs[idx], points: parseInt(e.target.value || '0') };
+                                                setNewTask({ ...newTask, testCases: tcs, testGroups: [] });
+                                            }}
+                                        />
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={!!tc.isHidden}
+                                                onChange={(e)=>{
+                                                    const tcs = [...(newTask.testCases||[])];
+                                                    tcs[idx] = { ...tcs[idx], isHidden: e.target.checked };
+                                                    setNewTask({ ...newTask, testCases: tcs, testGroups: [] });
+                                                }}
+                                            />
+                                            Hidden
+                                        </label>
+                                        <button type="button" className="btn-danger" title="Remove" onClick={()=>{
+                                            const tcs = [...(newTask.testCases||[])];
+                                            tcs.splice(idx,1);
+                                            setNewTask({ ...newTask, testCases: tcs });
+                                        }}>✕</button>
+                                    </div>
+                                ))}
+                                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                                    <button type="button" className="btn-secondary" onClick={()=>{
+                                        setNewTask({
+                                            ...newTask,
+                                            testGroups: [],
+                                            testCases: [ ...(newTask.testCases||[]), { input: '', expectedOutput: '', points: 10, isHidden: false } ]
+                                        });
+                                    }}>+ Add test</button>
+                                    <button type="button" className="btn-cancel" onClick={()=> setNewTask({ ...newTask, testCases: [] })}>Clear tests</button>
+                                </div>
+
+                                <div style={{ fontWeight: 600, marginBottom: 8 }}>OR grouped tests</div>
+                                {(newTask.testGroups || []).length === 0 && (
+                                    <small>No test groups (optional)</small>
+                                )}
+                                {(newTask.testGroups || []).map((grp, gidx) => (
+                                    <div key={gidx} style={{ border: '1px dashed #ddd', padding: 8, borderRadius: 6, marginBottom: 10 }}>
+                                        <div className="form-row">
+                                            <div className="form-group">
+                                                <label>Group name</label>
+                                                <input
+                                                    type="text"
+                                                    value={grp.name || ''}
+                                                    onChange={(e)=>{
+                                                        const groupsLocal = [...(newTask.testGroups||[])];
+                                                        groupsLocal[gidx] = { ...groupsLocal[gidx], name: e.target.value };
+                                                        setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label>Weight (%)</label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    max="1000"
+                                                    value={grp.weight ?? 100}
+                                                    onChange={(e)=>{
+                                                        const groupsLocal = [...(newTask.testGroups||[])];
+                                                        groupsLocal[gidx] = { ...groupsLocal[gidx], weight: parseInt(e.target.value || '0') };
+                                                        setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="form-group" style={{ alignSelf: 'end' }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={grp.continueOnFailure !== false}
+                                                        onChange={(e)=>{
+                                                            const groupsLocal = [...(newTask.testGroups||[])];
+                                                            groupsLocal[gidx] = { ...groupsLocal[gidx], continueOnFailure: e.target.checked };
+                                                            setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                        }}
+                                                    />
+                                                    Continue on failure
+                                                </label>
+                                            </div>
+                                            <div className="form-group" style={{ alignSelf: 'end' }}>
+                                                <button type="button" className="btn-danger" onClick={()=>{
+                                                    const groupsLocal = [...(newTask.testGroups||[])];
+                                                    groupsLocal.splice(gidx,1);
+                                                    setNewTask({ ...newTask, testGroups: groupsLocal });
+                                                }}>Remove group</button>
+                                            </div>
+                                        </div>
+                                        <div style={{ marginTop: 6 }}>
+                                            {(grp.tests || []).map((t, tidx) => (
+                                                <div key={tidx} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 100px 120px 40px', gap: 8, marginBottom: 8 }}>
+                                                    <textarea
+                                                        placeholder="stdin"
+                                                        rows={2}
+                                                        value={t.input || ''}
+                                                        onChange={(e)=>{
+                                                            const groupsLocal = [...(newTask.testGroups||[])];
+                                                            const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                            testsLocal[tidx] = { ...testsLocal[tidx], input: e.target.value };
+                                                            groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                            setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                        }}
+                                                    />
+                                                    <textarea
+                                                        placeholder="expected stdout"
+                                                        rows={2}
+                                                        value={t.expectedOutput || ''}
+                                                        onChange={(e)=>{
+                                                            const groupsLocal = [...(newTask.testGroups||[])];
+                                                            const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                            testsLocal[tidx] = { ...testsLocal[tidx], expectedOutput: e.target.value };
+                                                            groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                            setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                        }}
+                                                    />
+                                                    <input
+                                                        type="number"
+                                                        min="0"
+                                                        value={t.points ?? 1}
+                                                        onChange={(e)=>{
+                                                            const groupsLocal = [...(newTask.testGroups||[])];
+                                                            const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                            testsLocal[tidx] = { ...testsLocal[tidx], points: parseInt(e.target.value || '0') };
+                                                            groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                            setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                        }}
+                                                    />
+                                                    <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={!!t.isHidden}
+                                                            onChange={(e)=>{
+                                                                const groupsLocal = [...(newTask.testGroups||[])];
+                                                                const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                                testsLocal[tidx] = { ...testsLocal[tidx], isHidden: e.target.checked };
+                                                                groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                                setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                                            }}
+                                                        />
+                                                        Hidden
+                                                    </label>
+                                                    <button type="button" className="btn-danger" title="Remove" onClick={()=>{
+                                                        const groupsLocal = [...(newTask.testGroups||[])];
+                                                        const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                        testsLocal.splice(tidx,1);
+                                                        groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                        setNewTask({ ...newTask, testGroups: groupsLocal });
+                                                    }}>✕</button>
+                                                </div>
+                                            ))}
+                                            <button type="button" className="btn-secondary" onClick={()=>{
+                                                const groupsLocal = [...(newTask.testGroups||[])];
+                                                const testsLocal = [...(groupsLocal[gidx].tests||[])];
+                                                testsLocal.push({ input: '', expectedOutput: '', isHidden: false, points: 1 });
+                                                groupsLocal[gidx] = { ...groupsLocal[gidx], tests: testsLocal };
+                                                setNewTask({ ...newTask, testGroups: groupsLocal, testCases: [] });
+                                            }}>+ Add test to group</button>
+                                        </div>
+                                    </div>
+                                ))}
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                    <button type="button" className="btn-secondary" onClick={()=>{
+                                        setNewTask({
+                                            ...newTask,
+                                            testCases: [],
+                                            testGroups: [ ...(newTask.testGroups||[]), { name: 'default', weight: 100, continueOnFailure: true, tests: [] } ]
+                                        });
+                                    }}>+ Add group</button>
+                                    <button type="button" className="btn-cancel" onClick={()=> setNewTask({ ...newTask, testGroups: [] })}>Clear groups</button>
+                                </div>
+                                <small style={{ display: 'block', marginTop: 8 }}>Use either simple test cases or grouped tests (if any group exists, simple tests will be ignored)</small>
+                            </div>
+                        )}
 
                             <div className="form-group">
                                 <label>Description *</label>

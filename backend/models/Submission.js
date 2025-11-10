@@ -93,7 +93,8 @@ const SubmissionSchema = new mongoose.Schema({
         status: String,
         time: Number,
         memory: Number,
-        error: String
+        error: String,
+        groupName: String
     }],
     autoScore: { type: Number, default: 0 },
     maxScore: { type: Number, default: 0 },

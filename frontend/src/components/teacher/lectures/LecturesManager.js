@@ -8,6 +8,7 @@ const LecturesManager = () => {
   const [groups, setGroups] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ title: '', description: '', videoUrl: '', resources: '', assignedGroups: [] });
+  const [files, setFiles] = useState([]);
 
   const fetchLectures = async () => {
     try {
@@ -50,7 +51,30 @@ const LecturesManager = () => {
       body: JSON.stringify(body)
     });
     const data = await res.json();
-    if (data.success) { setShowCreate(false); setForm({ title: '', description: '', videoUrl: '', resources: '' }); fetchLectures(); }
+    if (data.success) {
+      // If files selected, upload them
+      if (files && files.length > 0) {
+        try {
+          const fd = new FormData();
+          Array.from(files).forEach(file => fd.append('files', file));
+          const uploadRes = await fetch(`${API_BASE}/api/lectures/${data.lecture._id}/attachments`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd
+          });
+          const uploadData = await uploadRes.json();
+          if (!uploadData.success) {
+            alert(uploadData.message || 'Failed to upload attachments');
+          }
+        } catch {
+          alert('Error uploading attachments');
+        }
+      }
+      setShowCreate(false);
+      setForm({ title: '', description: '', videoUrl: '', resources: '', assignedGroups: [] });
+      setFiles([]);
+      fetchLectures();
+    }
     else alert(data.message || 'Error creating lecture');
   };
 
@@ -96,6 +120,11 @@ const LecturesManager = () => {
               </div>
               <div className="form-group"><label>Video URL</label>
                 <input value={form.videoUrl} onChange={e=>setForm({...form,videoUrl:e.target.value})} placeholder="https://..." />
+              </div>
+              <div className="form-group">
+                <label>Attachments (ppt, pdf, docx, etc.)</label>
+                <input type="file" multiple onChange={(e)=>setFiles(e.target.files)} />
+                <small>Up to 10 files, max 50MB each</small>
               </div>
               <div className="form-group"><label>Resources (each line: Title | URL)</label>
                 <textarea rows={3} value={form.resources} onChange={e=>setForm({...form,resources:e.target.value})} />

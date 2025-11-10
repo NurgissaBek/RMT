@@ -4,6 +4,7 @@ import { API_BASE } from '../../config';
 import './StudentDashboard.css';
 import TaskSubmission from './TaskSubmission';
 import MySubmissions from './MySubmissions';
+import Profile from './Profile';
 
 const StudentDashboard = () => {
     const { token, user } = useContext(AuthContext);
@@ -16,10 +17,16 @@ const StudentDashboard = () => {
     const [selectedTask, setSelectedTask] = useState(null);
     const [selectedLecture, setSelectedLecture] = useState(null);
     const [selectedQuiz, setSelectedQuiz] = useState(null);
-    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' или 'submissions'
+    const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' | 'submissions' | 'profile'
 
     useEffect(() => {
         fetchData();
+
+        const handler = () => {
+            fetchData();
+        };
+        window.addEventListener('refresh-student', handler);
+        return () => window.removeEventListener('refresh-student', handler);
     }, []);
 
     const fetchData = async () => {
@@ -87,6 +94,22 @@ const StudentDashboard = () => {
         );
     }
 
+    if (currentView === 'profile') {
+        return (
+            <div className="student-dashboard">
+                <div className="view-switcher">
+                    <button 
+                        className="btn-back" 
+                        onClick={() => setCurrentView('dashboard')}
+                    >
+                        ← Back to Dashboard
+                    </button>
+                </div>
+                <Profile />
+            </div>
+        );
+    }
+
     // Main Dashboard
     return (
         <div className="student-dashboard">
@@ -95,66 +118,24 @@ const StudentDashboard = () => {
                     <h2>Welcome, {user.name}! 👋</h2>
                     <p>Keep solving tasks and earning points!</p>
                 </div>
-                <button 
-                    className="btn-view-submissions"
-                    onClick={() => setCurrentView('submissions')}
-                >
-                    📝 My Submissions
-                </button>
-            </div>
-
-            {/* Statistics */}
-            <div className="stats-grid">
-                <div className="stat-card">
-                    <div className="stat-icon">⭐</div>
-                    <div className="stat-info">
-                        <h3>{stats?.totalPoints || 0}</h3>
-                        <p>Total Points</p>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon">✅</div>
-                    <div className="stat-info">
-                        <h3>{stats?.approvedSubmissions || 0}</h3>
-                        <p>Solved Tasks</p>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon">⏳</div>
-                    <div className="stat-info">
-                        <h3>{stats?.pendingSubmissions || 0}</h3>
-                        <p>Pending Review</p>
-                    </div>
-                </div>
-
-                <div className="stat-card">
-                    <div className="stat-icon">🏆</div>
-                    <div className="stat-info">
-                        <h3>{stats?.badges?.length || 0}</h3>
-                        <p>Badges</p>
-                    </div>
+                <div>
+                    <button 
+                        className="btn-view-submissions"
+                        onClick={() => setCurrentView('submissions')}
+                    >
+                        📝 My Submissions
+                    </button>
+                    <button 
+                        className="btn-view-submissions"
+                        style={{ marginLeft: 10 }}
+                        onClick={() => setCurrentView('profile')}
+                    >
+                        👤 Profile
+                    </button>
                 </div>
             </div>
 
-            {/* Badges */}
-            {stats?.badges && stats.badges.length > 0 && (
-                <div className="badges-section">
-                    <h3>🏅 My Achievements</h3>
-                    <div className="badges-list">
-                        {stats.badges.map((badge, index) => (
-                            <div key={index} className="badge-item">
-                                <span className="badge-icon">🏆</span>
-                                <div>
-                                    <strong>{badge.name}</strong>
-                                    <p>{badge.description}</p>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            {/* Stats and badges moved to Profile page */}
 
             <div className="dashboard-grid">
                 {/* Tasks List */}
@@ -215,6 +196,11 @@ const StudentDashboard = () => {
                                             >
                                                 🎥 Watch Video
                                             </a>
+                                        )}
+                                        {lecture.attachments && lecture.attachments.length > 0 && (
+                                            <span className="task-points" style={{ marginLeft: '10px' }}>
+                                                📎 {lecture.attachments.length} file{lecture.attachments.length > 1 ? 's' : ''}
+                                            </span>
                                         )}
                                         <button 
                                             className="btn-solve"
@@ -350,6 +336,23 @@ const StudentDashboard = () => {
                                             <a href={resource.url} target="_blank" rel="noreferrer">
                                                 {resource.title || resource.url}
                                             </a>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        )}
+                        {selectedLecture.attachments && selectedLecture.attachments.length > 0 && (
+                            <div style={{ marginBottom: '20px' }}>
+                                <h3>Attachments</h3>
+                                <ul>
+                                    {selectedLecture.attachments.map((file, idx) => (
+                                        <li key={idx}>
+                                            <a href={file.url} target="_blank" rel="noreferrer">
+                                                {file.originalName}
+                                            </a>
+                                            <span style={{ marginLeft: 8, color: '#777' }}>
+                                                ({Math.round(file.size / 1024)} KB)
+                                            </span>
                                         </li>
                                     ))}
                                 </ul>

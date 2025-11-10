@@ -237,7 +237,16 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
             examples,
             hints,
             deadline,
-            assignedGroups
+            assignedGroups,
+            // опционально для контестерного режима
+            autoCheckEnabled,
+            timeLimitMs,
+            memoryLimitMb,
+            timeLimit,
+            memoryLimit,
+            checker,
+            testCases,
+            testGroups
         } = req.body;
 
         if (!title || !description || !bloomLevel || !difficulty) {
@@ -266,7 +275,13 @@ router.post('/', protect, authorize('teacher'), async (req, res) => {
             hints: hints || [],
             deadline: deadline || null,
             assignedGroups: assignedGroups, // Обязательное поле
-            createdBy: req.user.id
+            createdBy: req.user.id,
+            autoCheckEnabled: !!autoCheckEnabled,
+            timeLimitMs: typeof timeLimitMs === 'number' ? timeLimitMs : (typeof timeLimit === 'number' ? timeLimit * 1000 : 0),
+            memoryLimitMb: typeof memoryLimitMb === 'number' ? memoryLimitMb : (typeof memoryLimit === 'number' ? memoryLimit : 0),
+            checker: checker || undefined,
+            testCases: Array.isArray(testCases) ? testCases : undefined,
+            testGroups: Array.isArray(testGroups) ? testGroups : undefined
         });
 
         res.status(201).json({
@@ -321,12 +336,28 @@ router.put('/:id', protect, authorize('teacher'), async (req, res) => {
             }
         }
 
-        // Обновляем задачу
-        task = await Task.findByIdAndUpdate(
-            req.params.id,
-            req.body,
-            { new: true, runValidators: true }
-        ).populate('assignedGroups', 'name color');
+        // Собираем только разрешенные поля (чтобы не затереть лишнее)
+        const updatable = {};
+        const allowed = [
+            'title','description','bloomLevel','difficulty','points','programmingLanguage',
+            'examples','hints','deadline','assignedGroups','isActive',
+            'autoCheckEnabled','timeLimitMs','memoryLimitMb','timeLimit','memoryLimit',
+            'checker','testCases','testGroups'
+        ];
+        for (const key of allowed) {
+            if (req.body[key] !== undefined) updatable[key] = req.body[key];
+        }
+
+        // Нормализация лимитов
+        if (updatable.timeLimitMs === undefined && typeof updatable.timeLimit === 'number') {
+            updatable.timeLimitMs = updatable.timeLimit * 1000;
+        }
+        if (updatable.memoryLimitMb === undefined && typeof updatable.memoryLimit === 'number') {
+            updatable.memoryLimitMb = updatable.memoryLimit;
+        }
+
+        task = await Task.findByIdAndUpdate(req.params.id, updatable, { new: true, runValidators: true })
+            .populate('assignedGroups', 'name color');
 
         res.status(200).json({
             success: true,

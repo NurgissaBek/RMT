@@ -5,6 +5,28 @@ const User = require('../models/User');
 const { protect, authorize } = require('../middleware/auth');
 const logger = require('../utils/logger');
 const { shouldLogVisit } = require('../utils/visitTracker');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+
+// Multer storage for lecture attachments
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const lectureId = req.params.id || 'temp';
+    const dir = path.join(__dirname, '..', 'uploads', 'lectures', lectureId);
+    fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    const time = Date.now();
+    const safeOriginal = file.originalname.replace(/[^\w.\-]+/g, '_');
+    cb(null, `${time}__${safeOriginal}`);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB per file
+});
 
 // List lectures (students see published + assigned or unassigned)
 router.get('/', protect, async (req, res) => {
@@ -125,6 +147,40 @@ router.delete('/:id', protect, authorize('teacher'), async (req, res) => {
     // Удаляем лекцию полностью
     await lecture.deleteOne();
     res.json({ success: true, message: 'Lecture deleted' });
+  } catch (err) {
+    logger.error('Lectures route error', {
+      user: req.user ? req.user.id : null,
+      route: req.originalUrl,
+      ip: req.ip,
+      meta: { error: err.message, stack: err.stack }
+    });
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Upload attachments to a lecture (teacher who created)
+router.post('/:id/attachments', protect, authorize('teacher'), upload.array('files', 10), async (req, res) => {
+  try {
+    const lecture = await Lecture.findById(req.params.id);
+    if (!lecture) return res.status(404).json({ success: false, message: 'Lecture not found' });
+    if (lecture.createdBy.toString() !== req.user.id) return res.status(403).json({ success: false, message: 'Forbidden' });
+
+    const baseUrl = `${req.protocol}://${req.get('host')}`;
+    const saved = (req.files || []).map(f => {
+      const relPath = path.join('uploads', 'lectures', lecture._id.toString(), f.filename).replace(/\\/g, '/');
+      return {
+        originalName: f.originalname,
+        fileName: f.filename,
+        mimeType: f.mimetype,
+        size: f.size,
+        url: `${baseUrl}/${relPath}`
+      };
+    });
+
+    lecture.attachments = [...(lecture.attachments || []), ...saved];
+    await lecture.save();
+
+    res.status(201).json({ success: true, attachments: saved, lecture });
   } catch (err) {
     logger.error('Lectures route error', {
       user: req.user ? req.user.id : null,

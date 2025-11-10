@@ -13,6 +13,23 @@ const LANGUAGE_IDS = {
     'cpp': 54          // C++
 };
 
+function compareOutput(actual, expected, checker) {
+    const a = actual == null ? '' : String(actual);
+    const e = expected == null ? '' : String(expected);
+
+    const type = checker?.type || 'diff';
+    if (type === 'ignore_whitespace') {
+        const norm = s => s.replace(/\s+/g, ' ').trim();
+        return norm(a) === norm(e);
+    }
+    if (type === 'ignore_case_whitespace') {
+        const norm = s => s.toLowerCase().replace(/\s+/g, ' ').trim();
+        return norm(a) === norm(e);
+    }
+    // default 'diff' — строгое сравнение без лишних пробелов в конце
+    return a.trimEnd() === e.trimEnd();
+}
+
 /**
  * Запуск кода на Judge0
  */
@@ -79,8 +96,8 @@ async function checkSubmission(code, language, testCases, timeLimit, memoryLimit
             memoryLimit
         );
 
-        const passed = result.success && 
-                      result.stdout === testCase.expectedOutput.trim() &&
+        const passed = result.success &&
+                      compareOutput(result.stdout, testCase.expectedOutput, { type: 'diff' }) &&
                       result.status === 'Accepted';
 
         results.push({
@@ -112,8 +129,91 @@ async function checkSubmission(code, language, testCases, timeLimit, memoryLimit
     };
 }
 
+/**
+ * Проверка кода по группам тестов с весами
+ */
+async function checkSubmissionGrouped(code, language, testGroups, timeLimitMs, memoryLimitMb, checker) {
+    const groupsResult = [];
+    let totalScore = 0;
+    let maxScore = 0;
+
+    for (const group of testGroups) {
+        let groupScore = 0;
+        let groupMax = 0;
+        const testsOut = [];
+        let groupFailed = false;
+
+        for (const test of (group.tests || [])) {
+            const testPoints = typeof test.points === 'number' ? test.points : 1;
+            groupMax += testPoints;
+
+            const run = await runCode(
+                code,
+                language,
+                test.input,
+                (timeLimitMs || 5000) / 1000,
+                (memoryLimitMb || 128) * 1000
+            );
+
+            const passed = run.success &&
+                run.status === 'Accepted' &&
+                compareOutput(run.stdout, test.expectedOutput, checker);
+
+            testsOut.push({
+                testCase: {
+                    input: test.isHidden ? '[Hidden]' : test.input,
+                    expectedOutput: test.isHidden ? '[Hidden]' : test.expectedOutput,
+                    isHidden: !!test.isHidden
+                },
+                actualOutput: run.stdout,
+                passed,
+                points: passed ? testPoints : 0,
+                status: run.status,
+                time: run.time,
+                memory: run.memory,
+                error: run.stderr || run.compile_output || null,
+                groupName: group.name || 'default'
+            });
+
+            if (passed) groupScore += testPoints;
+            if (!passed && group.continueOnFailure === false) {
+                groupFailed = true;
+                break;
+            }
+        }
+
+        const weighted = (typeof group.weight === 'number' ? group.weight : 100) / 100;
+        const weightedScore = Math.round(groupScore * weighted);
+        const weightedMax = Math.round(groupMax * weighted);
+
+        totalScore += weightedScore;
+        maxScore += weightedMax;
+
+        groupsResult.push({
+            name: group.name || 'default',
+            score: groupScore,
+            max: groupMax,
+            weightedScore,
+            weightedMax,
+            tests: testsOut,
+            failedEarly: groupFailed && group.continueOnFailure === false
+        });
+    }
+
+    const flatTests = groupsResult.flatMap(g => g.tests);
+    return {
+        totalScore,
+        maxScore,
+        percentage: maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0,
+        testResults: flatTests,
+        groups: groupsResult,
+        allPassed: groupsResult.every(g => g.score === g.max)
+    };
+}
+
 module.exports = {
     runCode,
     checkSubmission,
+    checkSubmissionGrouped,
     LANGUAGE_IDS
 };

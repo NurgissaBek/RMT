@@ -5,6 +5,13 @@ const LectureSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   content: { type: String, default: '' },
   videoUrl: { type: String, default: '' },
+  attachments: [{
+    originalName: { type: String, required: true },
+    fileName: { type: String, required: true },
+    mimeType: { type: String, required: true },
+    size: { type: Number, required: true },
+    url: { type: String, required: true }
+  }],
   resources: [{ title: String, url: String }],
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   assignedGroups: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Group' }],
