@@ -44,6 +44,7 @@ const QuizzesManager = () => {
   };
 
   const parseQuestions = (text) => {
+    if (!text || !text.trim()) return [];
     return text.split(/\n\s*\n/).map(block => {
       const lines = block.split(/\n/).map(l => l.trim()).filter(Boolean);
       if (lines.length < 2) return null;
@@ -61,6 +62,8 @@ const QuizzesManager = () => {
       return { text: questionText, choices, correctIndex, points: 1 };
     }).filter(Boolean);
   };
+
+  const previewQuestions = parseQuestions(form.questionsText);
 
   const createQuiz = async (e) => {
     e.preventDefault();
@@ -205,13 +208,66 @@ const QuizzesManager = () => {
                 <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
               </div>
               <div className="form-group">
-                <label>Questions (template)</label>
+                <label>Questions (format: one question per block, mark correct answer with *)</label>
                 <textarea
-                  rows={8}
+                  rows={12}
                   value={form.questionsText}
                   onChange={(e) => setForm({ ...form, questionsText: e.target.value })}
-                  placeholder={'Question 1\n*Correct answer\nAnswer 2\nAnswer 3\n\nQuestion 2\nAnswer 1\n*Correct answer'}
+                  placeholder={`Example format:
+
+What is 2 + 2?
+*4
+3
+5
+6
+
+What is the capital of France?
+London
+*Paris
+Berlin
+Madrid
+
+Which programming language is used for web development?
+C++
+*JavaScript
+Assembly
+Binary`}
+                  style={{ fontFamily: 'monospace', fontSize: '13px', lineHeight: '1.6' }}
                 />
+                <small style={{ display: 'block', marginTop: '6px', color: '#64748b', fontSize: '12px' }}>
+                  💡 Format: Write each question on a new line, then list answers below it. Mark the correct answer with an asterisk (*). Separate questions with a blank line.
+                </small>
+                {form.questionsText && (
+                  <div style={{ marginTop: '12px', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                    <strong style={{ fontSize: '13px', color: '#1e293b', display: 'block', marginBottom: '8px' }}>
+                      Preview ({previewQuestions.length} question{previewQuestions.length !== 1 ? 's' : ''}):
+                    </strong>
+                    {previewQuestions.length > 0 ? (
+                      <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {previewQuestions.map((q, idx) => (
+                          <div key={idx} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: idx < previewQuestions.length - 1 ? '1px solid #e2e8f0' : 'none' }}>
+                            <div style={{ fontWeight: '500', color: '#1e293b', marginBottom: '6px', fontSize: '13px' }}>
+                              {idx + 1}. {q.text}
+                            </div>
+                            <div style={{ marginLeft: '16px' }}>
+                              {q.choices.map((choice, cIdx) => (
+                                <div key={cIdx} style={{ fontSize: '12px', color: cIdx === q.correctIndex ? '#059669' : '#64748b', marginBottom: '4px' }}>
+                                  {cIdx === q.correctIndex ? '✓ ' : '○ '}
+                                  {choice}
+                                  {cIdx === q.correctIndex && <span style={{ marginLeft: '6px', fontSize: '11px', color: '#059669' }}>(correct)</span>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#f59e0b', fontStyle: 'italic' }}>
+                        ⚠️ No valid questions found. Check the format above.
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>Assign to Groups</label>

@@ -3,6 +3,7 @@ import React, { useEffect, useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { io } from 'socket.io-client';
 import { API_BASE, SOCKET_URL } from '../../config';
+import './LiveLogs.css';
 
 const LiveLogs = () => {
   const { token } = useContext(AuthContext);
@@ -163,24 +164,23 @@ const LiveLogs = () => {
   return (
     <div className="live-logs">
       <h3>Student Activity Logs</h3>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+      <div className="live-logs-filters">
         <select value={category} onChange={(e) => setCategory(e.target.value)}>
-          <option value="all">All</option>
+          <option value="all">All Categories</option>
           <option value="task">Tasks</option>
           <option value="lecture">Lectures</option>
           <option value="quiz">Quizzes</option>
         </select>
         <select value={action} onChange={(e) => setAction(e.target.value)}>
-          <option value="all">All actions</option>
+          <option value="all">All Actions</option>
           <option value="opened">Opened</option>
           <option value="submitted">Submitted</option>
           <option value="reviewed">Reviewed</option>
         </select>
         <input
-          placeholder={category === 'all' ? 'Resource ID (optional)' : `${category} id`}
+          placeholder={category === 'all' ? 'Resource ID (optional)' : `${category} ID`}
           value={resourceId}
           onChange={(e) => setResourceId(e.target.value)}
-          style={{ minWidth: 220 }}
         />
         <input
           type="number"
@@ -188,52 +188,41 @@ const LiveLogs = () => {
           placeholder="Since (hours)"
           value={sinceHours}
           onChange={(e) => setSinceHours(e.target.value)}
-          style={{ width: 120 }}
         />
-        <button className="btn-secondary" onClick={() => {/* filters auto-apply */}}>
-          Apply
+        <button className="btn-apply" onClick={() => {/* filters auto-apply */}}>
+          Apply Filters
         </button>
       </div>
       {error && (
-        <div style={{ 
-          padding: '10px', 
-          backgroundColor: '#ffebee', 
-          color: '#c62828', 
-          borderRadius: '4px', 
-          marginBottom: '10px' 
-        }}>
-          Error: {error}
+        <div className="live-logs-error">
+          <strong>Error:</strong> {error}
         </div>
       )}
       {category !== 'all' && resourceId.trim() && (
-        <div style={{ marginBottom: 10, background: '#fff', padding: 10, borderRadius: 8, boxShadow: '0 1px 2px rgba(0,0,0,0.07)' }}>
+        <div className="live-logs-viewers">
           <strong>Views for this {category}:</strong> {loadingViews ? 'Loading…' : viewers.length}
           {viewers.length > 0 && (
-            <div style={{ marginTop: 6, display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <div className="live-logs-viewers-list">
               {viewers.slice(0, 12).map(v => (
-                <span key={v.userId} style={{ background: '#eef2ff', color: '#3730a3', padding: '2px 6px', borderRadius: 4, fontSize: 12 }}>
+                <span key={v.userId} className="live-logs-viewer-badge">
                   {v.name}
                 </span>
               ))}
-              {viewers.length > 12 && <span style={{ fontSize: 12, color: '#666' }}>+{viewers.length - 12} more</span>}
+              {viewers.length > 12 && <span style={{ fontSize: 12, color: '#64748b', alignSelf: 'center' }}>+{viewers.length - 12} more</span>}
             </div>
           )}
         </div>
       )}
 
-      <div style={{ maxHeight: 500, overflowY: 'auto', background:'#fff', padding:15, borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+      <div className="live-logs-container">
         {loading && logs.length === 0 ? (
-          <p style={{ color: '#94a3b8', textAlign: 'center', padding: '32px 0' }}>
-            Loading logs...
-          </p>
+          <div className="live-logs-empty">
+            <p>Loading logs...</p>
+          </div>
         ) : logs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <p style={{ color: '#94a3b8', marginBottom: '10px' }}>
-              No activity logs available.
-            </p>
-            <p style={{ color: '#666', fontSize: '12px' }}>
-              Student actions (opening tasks, submitting solutions, etc.) will appear here.
-            </p>
+          <div className="live-logs-empty">
+            <p>No activity logs available.</p>
+            <p>Student actions (opening tasks, submitting solutions, etc.) will appear here.</p>
           </div>
         ) : (
           logs.map(l => {
@@ -244,18 +233,12 @@ const LiveLogs = () => {
             return (
               <div 
                 key={l._id || Math.random()} 
-                style={{ 
-                  padding: '12px', 
-                  borderBottom: '1px solid #e0e0e0',
-                  marginBottom: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: l.level === 'error' ? '#ffebee' : '#fafafa'
-                }}
+                className={`live-logs-item ${l.level === 'error' ? 'error' : ''}`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '18px' }}>{getLogIcon(message)}</span>
-                  <strong style={{ color: '#1976d2', fontSize: '14px' }}>{studentName}</strong>
-                  <span style={{ fontSize: '12px', color: '#666' }}>
+                <div className="live-logs-item-header">
+                  <span className="live-logs-item-icon">{getLogIcon(message)}</span>
+                  <strong className="live-logs-item-student">{studentName}</strong>
+                  <span className="live-logs-item-time">
                     {logDate.toLocaleString('en-US', { 
                       month: 'short', 
                       day: 'numeric', 
@@ -264,33 +247,16 @@ const LiveLogs = () => {
                     })}
                   </span>
                   {l.level && (
-                    <span style={{ 
-                      fontSize: '10px', 
-                      padding: '2px 6px', 
-                      borderRadius: '3px',
-                      backgroundColor: l.level === 'error' ? '#f44336' : l.level === 'warn' ? '#ff9800' : '#4caf50',
-                      color: 'white'
-                    }}>
+                    <span className={`live-logs-item-level ${l.level}`}>
                       {l.level}
                     </span>
                   )}
                 </div>
-                <div style={{ 
-                  fontSize: '14px', 
-                  color: '#333', 
-                  marginLeft: '26px',
-                  fontWeight: 500
-                }}>
+                <div className="live-logs-item-message">
                   {message}
                 </div>
                 {l.meta && (l.meta.taskTitle || l.meta.lectureTitle || l.meta.quizTitle) && (
-                  <div style={{ 
-                    fontSize: '12px', 
-                    color: '#666', 
-                    marginLeft: '26px',
-                    marginTop: '4px',
-                    fontStyle: 'italic'
-                  }}>
+                  <div className="live-logs-item-meta">
                     {l.meta.taskTitle && `Task: ${l.meta.taskTitle}`}
                     {l.meta.lectureTitle && `Lecture: ${l.meta.lectureTitle}`}
                     {l.meta.quizTitle && `Quiz: ${l.meta.quizTitle}`}
@@ -302,7 +268,7 @@ const LiveLogs = () => {
           })
         )}
       </div>
-      <div style={{ marginTop: '10px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+      <div className="live-logs-footer">
         Showing {logs.length} recent activity logs
       </div>
     </div>
