@@ -32,8 +32,6 @@ const StudentDashboard = () => {
         return () => window.removeEventListener('refresh-student', handler);
     }, []);
 
-    // No DOM moving — render inline in header to avoid duplication
-
     const fetchData = async () => {
         try {
             // Получаем задачи
@@ -124,58 +122,6 @@ const StudentDashboard = () => {
                     <p>Keep solving tasks and earning points!</p>
                 </div>
                 <div>
-                    {user.role === 'student' && (
-                        applied ? (
-                            <>
-                              <span className="badge-apply" style={{ marginRight: 10 }}>Application Sent</span>
-                              <button
-                                className="btn-view-submissions"
-                                style={{ marginRight: 10, background: 'linear-gradient(135deg,#9aa0a6 0%, #a8adb2 100%)' }}
-                                disabled={applyLoading}
-                                onClick={async () => {
-                                  setApplyLoading(true);
-                                  try {
-                                    const res = await fetch(`${API_BASE}/api/users/apply-teacher`, {
-                                      method: 'DELETE',
-                                      headers: { 'Authorization': `Bearer ${token}` }
-                                    });
-                                    const data = await res.json();
-                                    if (res.ok && data.success) {
-                                      setApplied(false);
-                                    }
-                                  } finally {
-                                    setApplyLoading(false);
-                                  }
-                                }}
-                              >
-                                {applyLoading ? 'Cancelling…' : 'Cancel Application'}
-                              </button>
-                            </>
-                        ) : (
-                            <button
-                                className="btn-view-submissions btn-apply"
-                                style={{ marginRight: 10 }}
-                                disabled={applyLoading}
-                                onClick={async () => {
-                                    setApplyLoading(true);
-                                    try {
-                                        const res = await fetch(`${API_BASE}/api/users/apply-teacher`, {
-                                            method: 'POST',
-                                            headers: { 'Authorization': `Bearer ${token}` }
-                                        });
-                                        const data = await res.json();
-                                        if (res.ok && data.success) {
-                                            setApplied(true);
-                                        }
-                                    } finally {
-                                        setApplyLoading(false);
-                                    }
-                                }}
-                            >
-                                {applyLoading ? 'Submitting…' : 'Apply to be Teacher'}
-                            </button>
-                        )
-                    )}
                     <button 
                         className="btn-view-submissions"
                         onClick={() => setCurrentView('submissions')}
@@ -193,11 +139,11 @@ const StudentDashboard = () => {
             </div>
 
             {/* Teacher application CTA for students */}
-            {false && user.role === 'student' && (
-                <div className="actions-inline">
+            {user.role === 'student' && (
+                <div style={{ margin: '10px 0 0 0' }}>
                     <button
-                        id="apply-btn"
-                        className="btn-view-submissions btn-apply"
+                        className="btn-view-submissions"
+                        style={{ backgroundColor: '#1f8b4c' }}
                         disabled={applyLoading || applied}
                         onClick={async () => {
                             setApplyMessage('');
@@ -224,7 +170,7 @@ const StudentDashboard = () => {
                         {applied ? 'Application Sent' : (applyLoading ? 'Submitting…' : 'Apply to be Teacher')}
                     </button>
                     {applyMessage && (
-                        <span className="apply-info">{applyMessage}</span>
+                        <span style={{ marginLeft: 12, color: '#1f6feb' }}>{applyMessage}</span>
                     )}
                 </div>
             )}
@@ -537,4 +483,5 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+
 

@@ -7,8 +7,7 @@ const Register = ({ switchToLogin }) => {
     const [formData, setFormData] = useState({
         name: '',
         email: '',
-        password: '',
-        role: 'student'
+        password: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -28,8 +27,7 @@ const Register = ({ switchToLogin }) => {
         const result = await register(
             formData.name,
             formData.email,
-            formData.password,
-            formData.role
+            formData.password
         );
 
         if (!result.success) {
@@ -85,13 +83,7 @@ const Register = ({ switchToLogin }) => {
                         />
                     </div>
 
-                    <div className="form-group">
-                        <label>Role</label>
-                        <select name="role" value={formData.role} onChange={handleChange}>
-                            <option value="student">Student</option>
-                            <option value="teacher">Teacher</option>
-                        </select>
-                    </div>
+                    {/* Role selection removed: all new users are students by default */}
 
                     <button type="submit" className="btn-primary" disabled={loading}>
                         {loading ? 'Registering...' : 'Register'}

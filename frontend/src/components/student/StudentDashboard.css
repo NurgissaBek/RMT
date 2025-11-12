@@ -286,6 +286,28 @@
   box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
 }
 
+.badge-apply {
+  display: inline-block;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1f8b4c 0%, #2ca36a 100%);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* Inline actions row (apply to teacher) aligned with header buttons */
+.actions-inline { display: none; }
+
+.btn-apply {
+  background: linear-gradient(135deg, #1f8b4c 0%, #2ca36a 100%);
+}
+
+.btn-apply:disabled {
+  opacity: 0.85;
+}
+
+.apply-info { color: #1f6feb; font-weight: 600; }
+
 .view-switcher {
   margin-bottom: 20px;
 }
@@ -313,4 +335,6 @@
   .btn-view-submissions {
     width: 100%;
   }
+
+  .actions-inline { display: none; }
 }

@@ -32,6 +32,9 @@ app.use('/api/logs', require('./routes/logs'));
 app.use('/api/lectures', require('./routes/lectures'));
 app.use('/api/quizzes', require('./routes/quizzes'));
 app.use('/api/users', require('./routes/users'));
+// New role management routes
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
 
 // Root
 app.get('/', (req, res) => {
