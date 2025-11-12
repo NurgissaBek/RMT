@@ -185,17 +185,93 @@ router.put('/:id/review', protect, authorize('teacher'), async (req, res) => {
     const student = await User.findById(submission.student._id);
     if (!student) return res.status(404).json({ success: false, message: 'Student not found' });
 
-    const prev = submission.pointsAwarded || 0;
-    let newPoints = prev;
+    // Points and XP/badges logic
+    const previousPoints = submission.pointsAwarded || 0;
+    let updatedPoints = previousPoints;
+
     if (status === 'approved') {
-      const target = (pointsAwarded !== undefined && pointsAwarded !== null) ? Number(pointsAwarded) : (submission.task.points || 0);
-      newPoints = Math.max(0, target);
+      const targetPoints = (pointsAwarded !== undefined && pointsAwarded !== null)
+        ? Number(pointsAwarded)
+        : (submission.task.points || 0);
+      updatedPoints = Math.max(0, targetPoints);
+
+      // XP and streak (keep original behavior: add XP for this approval)
+      try {
+        const xpToAdd = updatedPoints * 5;
+        await student.addExperience(xpToAdd);
+        const streakInfo = await student.updateStreak();
+        if (streakInfo?.bonusPoints) {
+          student.points = Math.max(0, (student.points || 0) + streakInfo.bonusPoints);
+        }
+      } catch (_) {}
+
+      // Built‑in achievement badges
+      if (!student.badges.some(b => b.name === 'First Task')) {
+        student.badges.push({
+          name: 'First Task',
+          description: 'Первое успешно решённое задание',
+          earnedAt: new Date(),
+          icon: '',
+          rarity: 'common'
+        });
+      }
+      if ((student.points || 0) >= 100 && !student.badges.find(b => b.name === 'Century')) {
+        student.badges.push({
+          name: 'Century',
+          description: 'Набрано 100 очков',
+          earnedAt: new Date(),
+          icon: '',
+          rarity: 'rare'
+        });
+      }
+      if ((student.points || 0) >= 500 && !student.badges.find(b => b.name === 'Pro Coder')) {
+        student.badges.push({
+          name: 'Pro Coder',
+          description: 'Набрано 500 очков',
+          earnedAt: new Date(),
+          icon: '',
+          rarity: 'epic'
+        });
+      }
     } else {
-      newPoints = 0;
+      updatedPoints = 0;
     }
-    const delta = newPoints - prev;
-    if (delta !== 0) student.points = Math.max(0, (student.points || 0) + delta);
-    submission.pointsAwarded = newPoints;
+
+    // Apply points delta on student
+    const delta = updatedPoints - previousPoints;
+    if (delta !== 0) {
+      student.points = Math.max(0, (student.points || 0) + delta);
+    }
+    submission.pointsAwarded = updatedPoints;
+
+    // Attach custom badges coming from UI to submission and student (if new)
+    const normalizedBadges = Array.isArray(badges) ? badges.filter(b => b && b.name) : [];
+    if (normalizedBadges.length > 0) {
+      const now = new Date();
+      submission.awardedBadges = normalizedBadges.map(badge => ({
+        name: badge.name,
+        description: badge.description || '',
+        icon: badge.icon || '',
+        rarity: ['common', 'rare', 'epic', 'legendary'].includes(badge.rarity) ? badge.rarity : 'common',
+        awardedBy: req.user.id,
+        awardedAt: now
+      }));
+
+      normalizedBadges.forEach(badge => {
+        const alreadyHas = student.badges?.some(existing => existing.name === badge.name);
+        if (!alreadyHas) {
+          student.badges.push({
+            name: badge.name,
+            description: badge.description || '',
+            icon: badge.icon || '',
+            rarity: ['common', 'rare', 'epic', 'legendary'].includes(badge.rarity) ? badge.rarity : 'common',
+            earnedAt: now
+          });
+        }
+      });
+    } else {
+      submission.awardedBadges = [];
+    }
 
     await submission.save();
     await student.save();
@@ -219,4 +295,3 @@ router.get('/stats/student', protect, authorize('student'), async (req, res) => 
 });
 
 module.exports = router;
-
