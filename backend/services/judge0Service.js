@@ -80,7 +80,7 @@ async function runCode(code, language, input, timeLimit = 5, memoryLimit = 12800
 /**
  * Проверка кода по всем тест-кейсам
  */
-async function checkSubmission(code, language, testCases, timeLimit, memoryLimit) {
+async function checkSubmission(code, language, testCases, timeLimit, memoryLimit, checker) {
     const results = [];
     let totalScore = 0;
     let maxScore = 0;
@@ -97,7 +97,7 @@ async function checkSubmission(code, language, testCases, timeLimit, memoryLimit
         );
 
         const passed = result.success &&
-                      compareOutput(result.stdout, testCase.expectedOutput, { type: 'diff' }) &&
+                      compareOutput(result.stdout, testCase.expectedOutput, checker) &&
                       result.status === 'Accepted';
 
         results.push({

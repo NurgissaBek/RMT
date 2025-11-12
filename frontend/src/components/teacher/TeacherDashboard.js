@@ -905,9 +905,22 @@ const TeacherDashboard = () => {
                                         </button>
                                         <button 
                                             className="btn-icon"
-                                            onClick={() => {
-                                                setSelectedTask(task);
-                                                setShowEditTask(true);
+                                            onClick={async () => {
+                                                try {
+                                                    const res = await fetch(`${API_BASE}/api/tasks/${task._id}`, { headers: { 'Authorization': `Bearer ${token}` } });
+                                                    const data = await res.json();
+                                                    if (data.success && data.task) {
+                                                        setSelectedTask(data.task);
+                                                        setShowEditTask(true);
+                                                    } else {
+                                                        // fallback to existing task if detail fetch failed
+                                                        setSelectedTask(task);
+                                                        setShowEditTask(true);
+                                                    }
+                                                } catch (e) {
+                                                    setSelectedTask(task);
+                                                    setShowEditTask(true);
+                                                }
                                             }}
                                             title="Edit"
                                         >
